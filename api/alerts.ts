@@ -1,9 +1,129 @@
 // Endpoint Serverless Vercel: /api/alerts
 // Responsable: Backend Architect & Security Engineer
-// Permite registrar y listar alertas ciudadanas colectivas con persistencia en Base de Datos y rate limit.
+// Permite registrar y listar alertas ciudadanas colectivas con persistencia en Supabase (PostgreSQL) y rate limit.
 
-import { getAlertsFromDb, saveAlertToDb, CitizenAlertRecord } from './_lib/db';
-import { checkRateLimit, getClientIp } from './_lib/rateLimiter';
+export interface CitizenAlertRecord {
+  id: string;
+  projectId: string;
+  projectName: string;
+  description: string;
+  photoUrl?: string | null;
+  status: 'Recibida' | 'En Revisión' | 'Atendida';
+  createdAt: string;
+  municipalityCode?: string | null;
+}
+
+// Almacén en memoria de respaldo para el ciclo de vida del contenedor
+const memoryFallback: CitizenAlertRecord[] = [];
+const ipLimits = new Map<string, number[]>();
+
+function getClientIp(req: any): string {
+  const forwarded = req.headers?.['x-forwarded-for'];
+  if (typeof forwarded === 'string') {
+    return forwarded.split(',')[0].trim();
+  }
+  return req.headers?.['x-real-ip'] || req.socket?.remoteAddress || '127.0.0.1';
+}
+
+function checkRateLimit(key: string, max: number, windowMs: number) {
+  const now = Date.now();
+  let record = ipLimits.get(key) || [];
+  record = record.filter((t) => now - t < windowMs);
+
+  if (record.length >= max) {
+    const resetInMs = Math.max(0, windowMs - (now - record[0]));
+    return { allowed: false, remaining: 0, resetInMs };
+  }
+
+  record.push(now);
+  ipLimits.set(key, record);
+  return { allowed: true, remaining: max - record.length, resetInMs: windowMs };
+}
+
+async function getAlertsFromDb(projectId?: string): Promise<CitizenAlertRecord[]> {
+  const supabaseUrl = process.env.SUPABASE_URL;
+  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY;
+
+  if (supabaseUrl && supabaseKey) {
+    try {
+      let endpoint = `${supabaseUrl.replace(/\/$/, '')}/rest/v1/citizen_alerts?select=*&order=created_at.desc`;
+      if (projectId) {
+        endpoint += `&project_id=eq.${encodeURIComponent(projectId)}`;
+      }
+
+      const response = await fetch(endpoint, {
+        headers: {
+          apikey: supabaseKey,
+          Authorization: `Bearer ${supabaseKey}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (response.ok) {
+        const rows: any[] = await response.json();
+        return rows.map((r) => ({
+          id: r.id,
+          projectId: r.project_id,
+          projectName: r.project_name,
+          description: r.description,
+          photoUrl: r.photo_url || null,
+          status: r.status || 'Recibida',
+          createdAt: r.created_at || new Date().toISOString(),
+          municipalityCode: r.municipality_code || null,
+        }));
+      }
+    } catch (err) {
+      console.error('Error al conectar con Supabase en /api/alerts:', err);
+    }
+  }
+
+  let result = memoryFallback;
+  if (projectId) {
+    result = result.filter((a) => a.projectId === projectId);
+  }
+  return result;
+}
+
+async function saveAlertToDb(alert: CitizenAlertRecord): Promise<CitizenAlertRecord> {
+  const supabaseUrl = process.env.SUPABASE_URL;
+  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY;
+
+  if (supabaseUrl && supabaseKey) {
+    try {
+      const endpoint = `${supabaseUrl.replace(/\/$/, '')}/rest/v1/citizen_alerts`;
+      const payload = {
+        id: alert.id,
+        project_id: alert.projectId,
+        project_name: alert.projectName,
+        description: alert.description,
+        photo_url: alert.photoUrl || null,
+        status: alert.status,
+        created_at: alert.createdAt,
+        municipality_code: alert.municipalityCode || null,
+      };
+
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          apikey: supabaseKey,
+          Authorization: `Bearer ${supabaseKey}`,
+          'Content-Type': 'application/json',
+          Prefer: 'return=representation',
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (response.ok) {
+        return alert;
+      }
+    } catch (err) {
+      console.error('Error insertando en Supabase:', err);
+    }
+  }
+
+  memoryFallback.unshift(alert);
+  return alert;
+}
 
 export default async function handler(req: any, res: any) {
   const allowedOrigin = process.env.ALLOWED_ORIGIN || '*';
@@ -15,7 +135,6 @@ export default async function handler(req: any, res: any) {
     return res.status(200).end();
   }
 
-  // GET /api/alerts - Listar alertas (soporta filtro opcional ?projectId=...)
   if (req.method === 'GET') {
     try {
       const { projectId } = req.query || {};
@@ -27,10 +146,8 @@ export default async function handler(req: any, res: any) {
     }
   }
 
-  // POST /api/alerts - Crear nueva alerta ciudadana
   if (req.method === 'POST') {
     const clientIp = getClientIp(req);
-    // Rate limit: Máximo 15 alertas por IP cada 1 hora
     const limit = checkRateLimit(`alert_${clientIp}`, 15, 3600000);
     res.setHeader('X-RateLimit-Remaining', limit.remaining);
 

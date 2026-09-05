@@ -2,7 +2,30 @@
 // Responsable: Security Engineer & Backend Architect
 // Oculta GEMINI_API_KEY, aplica control de rate-limit por IP y manejo resiliente de errores.
 
-import { checkRateLimit, getClientIp } from './_lib/rateLimiter';
+const ipLimits = new Map<string, number[]>();
+
+function getClientIp(req: any): string {
+  const forwarded = req.headers?.['x-forwarded-for'];
+  if (typeof forwarded === 'string') {
+    return forwarded.split(',')[0].trim();
+  }
+  return req.headers?.['x-real-ip'] || req.socket?.remoteAddress || '127.0.0.1';
+}
+
+function checkRateLimit(key: string, max: number, windowMs: number) {
+  const now = Date.now();
+  let record = ipLimits.get(key) || [];
+  record = record.filter((t) => now - t < windowMs);
+
+  if (record.length >= max) {
+    const resetInMs = Math.max(0, windowMs - (now - record[0]));
+    return { allowed: false, remaining: 0, resetInMs };
+  }
+
+  record.push(now);
+  ipLimits.set(key, record);
+  return { allowed: true, remaining: max - record.length, resetInMs: windowMs };
+}
 
 export default async function handler(req: any, res: any) {
   const allowedOrigin = process.env.ALLOWED_ORIGIN || '*';
@@ -31,7 +54,7 @@ export default async function handler(req: any, res: any) {
     });
   }
 
-  const apiKey = process.env.GEMINI_API_KEY;
+  const apiKey = process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY;
   if (!apiKey || apiKey === 'PLACEHOLDER_API_KEY') {
     return res.status(503).json({
       error: 'El servicio de IA no está configurado en el servidor (falta GEMINI_API_KEY).',
