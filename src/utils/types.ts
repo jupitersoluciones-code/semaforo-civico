@@ -43,6 +43,20 @@ export interface Contract extends ProjectBase {
   numberOfBidders: number;
   category: string;
   relatedGoalId?: string;
+  // Campos enriquecidos del expediente y dependencia oficial
+  entityName?: string;
+  entityNit?: string;
+  departmentAgency?: string;
+  spendingOfficer?: string;
+  supervisor?: string;
+  processNumber?: string;
+  processUrl?: string;
+  justification?: string;
+  fundingSource?: string;
+  expenseDestination?: string;
+  sector?: string;
+  branch?: string;
+  rawRealContract?: RealContract;
 }
 
 export interface Goal extends ProjectBase {

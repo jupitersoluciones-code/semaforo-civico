@@ -225,6 +225,17 @@ export function mapRealContractToContract(rc: RealContract): Contract {
     endDate,
   );
 
+  const processUrl = extractProcessUrl(rc);
+  const departmentAgency = extractSecretariaOrDespacho(rc);
+  const cleanSpendingOfficer =
+    rc.nombre_ordenador_del_gasto && rc.nombre_ordenador_del_gasto !== 'No definido'
+      ? rc.nombre_ordenador_del_gasto
+      : undefined;
+  const cleanSupervisor =
+    rc.nombre_supervisor && rc.nombre_supervisor !== 'No definido'
+      ? rc.nombre_supervisor
+      : undefined;
+
   return {
     id: rc.id_contrato || rc.referencia_del_contrato || 'N/A',
     name: rc.objeto_del_contrato || rc.descripcion_del_proceso || 'Sin descripción',
@@ -241,7 +252,68 @@ export function mapRealContractToContract(rc: RealContract): Contract {
     category: rc.tipo_de_contrato || rc.sector || 'General',
     status: status as import('../utils/types').SemaphoreStatus,
     type: 'contract' as const,
+    // Campos oficiales enriquecidos del expediente y dependencia
+    entityName: rc.nombre_entidad,
+    entityNit: rc.nit_entidad,
+    departmentAgency,
+    spendingOfficer: cleanSpendingOfficer,
+    supervisor: cleanSupervisor,
+    processNumber: rc.proceso_de_compra || rc.referencia_del_contrato,
+    processUrl,
+    justification: rc.justificacion_modalidad_de,
+    fundingSource: rc.origen_de_los_recursos,
+    expenseDestination: rc.destino_gasto,
+    sector: rc.sector,
+    branch: rc.rama,
+    rawRealContract: rc,
   };
+}
+
+export function extractSecretariaOrDespacho(rc: RealContract): string {
+  // 1. Si viene especificado en la unidad ejecutora de SECOP II
+  if (rc.nombre_de_la_unidad_de && typeof rc.nombre_de_la_unidad_de === 'string' && rc.nombre_de_la_unidad_de.trim()) {
+    return rc.nombre_de_la_unidad_de.trim();
+  }
+
+  // 2. Extracción heurística contextual a partir del objeto y descripción contractual
+  const text = `${rc.objeto_del_contrato || ''} ${rc.descripcion_del_proceso || ''}`;
+  const patterns = [
+    /(secretar[ií]a\s+(?:general|de\s+[a-záéíóúñ\s]+?))(?:,|\.|\s+del|\s+para|\s+de\s+la|\s+de\s+los|\s+con\s+el|\s+en\s+el|\s+a\s+través|$)/i,
+    /(despacho\s+del?\s+[a-záéíóúñ\s]+?)(?:,|\.|\s+del|\s+para|\s+de\s+la|\s+a\s+través|$)/i,
+    /(direcci[oó]n\s+(?:general|de\s+[a-záéíóúñ\s]+?))(?:,|\.|\s+del|\s+para|\s+de\s+la|$)/i,
+    /(instituto\s+(?:municipal|distrital|de\s+[a-záéíóúñ\s]+?))(?:,|\.|\s+del|\s+para|\s+de\s+la|$)/i,
+    /(departamento\s+administrativo\s+de\s+[a-záéíóúñ\s]+?)(?:,|\.|\s+del|\s+para|$)/i,
+    /(unidad\s+administrativa\s+(?:especial\s+)?de\s+[a-záéíóúñ\s]+?)(?:,|\.|\s+del|\s+para|$)/i,
+    /(oficina\s+(?:asesora\s+)?de\s+[a-záéíóúñ\s]+?)(?:,|\.|\s+del|\s+para|$)/i,
+  ];
+
+  for (const regex of patterns) {
+    const match = text.match(regex);
+    if (match && match[1]) {
+      const cleaned = match[1].trim().replace(/[\s\r\n]+/g, ' ');
+      if (cleaned.length >= 10 && cleaned.length <= 80) {
+        return cleaned
+          .toLowerCase()
+          .replace(/(?:^|\s)\S/g, (a) => a.toUpperCase());
+      }
+    }
+  }
+
+  // 3. Fallback inteligente a sector administrativo
+  if (rc.sector && rc.sector !== 'No aplica/No pertenece' && rc.sector !== 'Servicio Público') {
+    return `Área de ${rc.sector}`;
+  }
+
+  return rc.nombre_entidad ? `${rc.nombre_entidad} - Despacho Central` : 'Despacho Central de Contratación';
+}
+
+function extractProcessUrl(rc: RealContract): string | undefined {
+  if (!rc.urlproceso) return undefined;
+  if (typeof rc.urlproceso === 'string') return rc.urlproceso;
+  if (typeof rc.urlproceso === 'object' && (rc.urlproceso as any).url) {
+    return (rc.urlproceso as any).url;
+  }
+  return undefined;
 }
 
 function calculateExecutionPercentage(rc: RealContract, startDate: string, endDate: string): number {

@@ -69,6 +69,12 @@ const ProjectCard: React.FC<Props> = ({ project, onAlertClick, onViewDetailsClic
             </div>
           </>
         )}
+        {isContract && contract && contract.departmentAgency && (
+          <div className="flex items-center gap-1 text-[11px] font-medium text-blue-700 bg-blue-50/80 px-2 py-1 rounded border border-blue-100 truncate">
+            <span className="shrink-0">🏛️</span>
+            <span className="truncate">{contract.departmentAgency}</span>
+          </div>
+        )}
       </div>
 
       <div className="mt-3">
@@ -90,7 +96,16 @@ const ProjectCard: React.FC<Props> = ({ project, onAlertClick, onViewDetailsClic
         </div>
       </div>
 
-      <div className="mt-3 flex justify-end">
+      <div className="mt-3 flex justify-between items-center pt-1 border-t border-slate-100">
+        {isContract && contract ? (
+          <button
+            onClick={() => onViewDetailsClick(contract)}
+            className="text-xs font-semibold text-blue-600 hover:text-blue-800 transition-colors flex items-center gap-1"
+          >
+            <span>Ver Expediente</span>
+            <span>&rarr;</span>
+          </button>
+        ) : <div />}
         <button
           onClick={() => onAlertClick(project)}
           className="inline-flex items-center gap-1 text-xs font-medium text-amber-600 hover:text-amber-700 transition-colors"
