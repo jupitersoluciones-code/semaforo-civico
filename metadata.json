@@ -1,0 +1,7 @@
+{
+  "name": "Copy of Semáforo Cívico",
+  "description": "An application for citizen oversight of public management in Colombia. It aggregates official data on contracts, development goals, and budgets, presenting them with a simple 'traffic light' indicator to facilitate citizen action and reporting.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
