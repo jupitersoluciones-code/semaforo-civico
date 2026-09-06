@@ -24,6 +24,37 @@ export async function fetchMunicipalitiesByDepartment(departmentCode: string): P
   );
 }
 
+export const SECOP_DEPARTMENT_MAP: Record<string, string> = {
+  '11': 'Distrito Capital de Bogotá',
+  'Bogotá, D.C.': 'Distrito Capital de Bogotá',
+  'Bogota, D.C.': 'Distrito Capital de Bogotá',
+  'Bogotá': 'Distrito Capital de Bogotá',
+  'Bogota': 'Distrito Capital de Bogotá',
+  '88': 'San Andrés, Providencia y Santa Catalina',
+  'San Andrés y Providencia': 'San Andrés, Providencia y Santa Catalina',
+  'San Andres y Providencia': 'San Andrés, Providencia y Santa Catalina',
+};
+
+export function normalizeSecopDepartment(deptCodeOrName: string): string[] {
+  const clean = (deptCodeOrName || '').trim();
+  if (!clean) return [];
+
+  // Check direct mapping
+  if (SECOP_DEPARTMENT_MAP[clean]) {
+    return [SECOP_DEPARTMENT_MAP[clean]];
+  }
+
+  // Check department code
+  const dept = DEPARTMENTS.find((d) => d.code === clean);
+  if (dept) {
+    if (SECOP_DEPARTMENT_MAP[dept.code]) return [SECOP_DEPARTMENT_MAP[dept.code]];
+    if (SECOP_DEPARTMENT_MAP[dept.name]) return [SECOP_DEPARTMENT_MAP[dept.name]];
+    return [dept.name];
+  }
+
+  return [clean];
+}
+
 function getDeptInfo(code: string): Department | undefined {
   return DEPARTMENTS.find((d) => d.code === code);
 }
@@ -47,19 +78,75 @@ function normalizeModalidad(modalidad: string | undefined): ModalidadType {
   return 'Contratación Directa';
 }
 
-function buildSoqlWhereClause(deptName: string, cityName?: string): string {
-  const deptUpper = deptName.toUpperCase().replace(/'/g, "''");
-  const deptNoAccents = stripAccents(deptUpper);
+function buildSoqlWhereClause(deptNameOrCode: string, cityName?: string): string {
+  const resolvedDepts = normalizeSecopDepartment(deptNameOrCode);
+  const deptConditions: string[] = [];
 
-  let clause = `(upper(departamento)='${deptUpper}' OR upper(departamento)='${deptNoAccents}')`;
+  for (const d of resolvedDepts) {
+    const dUpper = d.toUpperCase().replace(/'/g, "''");
+    const dNoAccents = stripAccents(dUpper);
+    deptConditions.push(`upper(departamento)='${dUpper}'`);
+    if (dNoAccents !== dUpper) {
+      deptConditions.push(`upper(departamento)='${dNoAccents}'`);
+    }
+  }
+
+  if (deptConditions.length === 0) {
+    const dUpper = deptNameOrCode.toUpperCase().replace(/'/g, "''");
+    deptConditions.push(`upper(departamento)='${dUpper}'`);
+  }
+
+  let clause = `(${deptConditions.join(' OR ')})`;
 
   if (cityName && cityName.trim()) {
-    const cityUpper = cityName.toUpperCase().replace(/'/g, "''");
-    const cityNoAccents = stripAccents(cityUpper);
-    clause += ` AND (upper(ciudad)='${cityUpper}' OR upper(ciudad)='${cityNoAccents}')`;
+    const cleanCity = cityName.trim();
+    if (cleanCity.toLowerCase().includes('bogot')) {
+      clause += ` AND (upper(ciudad)='BOGOTÁ' OR upper(ciudad)='BOGOTA' OR upper(ciudad)='DISTRITO CAPITAL' OR upper(ciudad)='NO DEFINIDO')`;
+    } else {
+      const cityUpper = cleanCity.toUpperCase().replace(/'/g, "''");
+      const cityNoAccents = stripAccents(cityUpper);
+      clause += ` AND (upper(ciudad)='${cityUpper}' OR upper(ciudad)='${cityNoAccents}')`;
+    }
   }
 
   return clause;
+}
+
+export async function fetchContractsByDepartment(
+  departmentCode: string,
+  limit = 200,
+): Promise<RealContract[]> {
+  const dept = getDeptInfo(departmentCode);
+  const deptName = dept?.name || departmentCode;
+  const whereClause = buildSoqlWhereClause(deptName);
+  const cacheKey = `contracts_dept_${departmentCode}_${limit}`;
+
+  // 1. Intento primario: a través del Proxy Serverless /api/secop
+  const proxyUrl = `/api/secop?where=${encodeURIComponent(whereClause)}&limit=${limit}&resourceId=${SECOP_CONTRACTS_ID}`;
+  try {
+    const contracts = await fetchWithCache<RealContract[]>(proxyUrl, cacheKey);
+    if (Array.isArray(contracts) && contracts.length > 0) {
+      return contracts;
+    }
+  } catch (proxyError) {
+    console.warn('Proxy /api/secop no disponible para departamento, usando consulta directa:', proxyError);
+  }
+
+  // 2. Respaldo secundario: consulta directa a Socrata
+  const params = new URLSearchParams({
+    $where: whereClause,
+    $order: 'fecha_de_firma DESC',
+    $limit: String(limit),
+  });
+
+  const directUrl = `${SOCRATA_BASE_URL}/${SECOP_CONTRACTS_ID}.json?${params.toString()}`;
+  try {
+    const contracts = await fetchWithCache<RealContract[]>(directUrl, cacheKey);
+    return Array.isArray(contracts) ? contracts : [];
+  } catch (error) {
+    console.error('Error al consultar contratos por departamento:', error);
+    return [];
+  }
 }
 
 export async function fetchContractsByMunicipality(
@@ -105,18 +192,7 @@ export async function fetchContractsByMunicipality(
   } catch (error) {
     console.warn('Fallo consulta con ciudad específica, intentando por departamento:', error);
     // Fallback terciario: si la ciudad no arroja por disparidad de nombre municipal en SECOP II, consultar por departamento
-    const fallbackParams = new URLSearchParams({
-      $where: `upper(departamento)='${deptName.toUpperCase()}'`,
-      $order: 'fecha_de_firma DESC',
-      $limit: String(limit),
-    });
-    try {
-      return await fetchJson<RealContract[]>(
-        `${SOCRATA_BASE_URL}/${SECOP_CONTRACTS_ID}.json?${fallbackParams.toString()}`,
-      );
-    } catch {
-      return [];
-    }
+    return await fetchContractsByDepartment(departmentCode, limit);
   }
 }
 

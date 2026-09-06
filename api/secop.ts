@@ -53,11 +53,27 @@ export default async function handler(req: any, res: any) {
       const cleanQuery = String(query).replace(/'/g, "''");
       params.append('$where', `objeto_del_contrato like '%25${cleanQuery}%25'`);
     } else if (departamento) {
-      const cleanDept = String(departamento).toUpperCase().replace(/'/g, "''");
-      let whereClause = `upper(departamento)='${cleanDept}'`;
-      if (ciudad) {
-        const cleanCity = String(ciudad).toUpperCase().replace(/'/g, "''");
-        whereClause += ` AND upper(ciudad)='${cleanCity}'`;
+      let deptStr = String(departamento).trim();
+      // Mapeo canónico a nombres SECOP II
+      if (deptStr === '11' || /bogot/i.test(deptStr)) {
+        deptStr = 'Distrito Capital de Bogotá';
+      } else if (deptStr === '88' || /san andr/i.test(deptStr)) {
+        deptStr = 'San Andrés, Providencia y Santa Catalina';
+      }
+
+      const cleanDept = deptStr.toUpperCase().replace(/'/g, "''");
+      const cleanDeptNoAccents = cleanDept.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+      let whereClause = `(upper(departamento)='${cleanDept}' OR upper(departamento)='${cleanDeptNoAccents}')`;
+
+      if (ciudad && String(ciudad).trim()) {
+        const cityStr = String(ciudad).trim();
+        if (/bogot/i.test(cityStr)) {
+          whereClause += ` AND (upper(ciudad)='BOGOTÁ' OR upper(ciudad)='BOGOTA' OR upper(ciudad)='DISTRITO CAPITAL' OR upper(ciudad)='NO DEFINIDO')`;
+        } else {
+          const cleanCity = cityStr.toUpperCase().replace(/'/g, "''");
+          const cleanCityNoAccents = cleanCity.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+          whereClause += ` AND (upper(ciudad)='${cleanCity}' OR upper(ciudad)='${cleanCityNoAccents}')`;
+        }
       }
       params.append('$where', whereClause);
     }

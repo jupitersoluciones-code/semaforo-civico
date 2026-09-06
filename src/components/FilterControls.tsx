@@ -58,7 +58,11 @@ const FilterControls: React.FC<Props> = ({
             className="w-full border border-slate-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white disabled:bg-slate-100 disabled:cursor-not-allowed"
           >
             <option value="">
-              {isLoadingMunicipalities ? 'Cargando municipios...' : '-- Selecciona un municipio --'}
+              {isLoadingMunicipalities
+                ? 'Cargando municipios...'
+                : selectedDepartment
+                  ? `🏛️ Todo el departamento / Nivel Departamental (${municipalities.length} municipios)`
+                  : '-- Primero selecciona un departamento --'}
             </option>
             {municipalities.map((m) => (
               <option key={m.code} value={m.code}>
@@ -66,8 +70,12 @@ const FilterControls: React.FC<Props> = ({
               </option>
             ))}
           </select>
-          {municipalities.length > 0 && (
-            <p className="text-xs text-slate-400 mt-1">{municipalities.length} municipios disponibles</p>
+          {selectedDepartment && (
+            <p className="text-xs text-slate-500 mt-1">
+              {selectedMunicipality
+                ? 'Filtrado por municipio específico.'
+                : `Auditoría a nivel departamental (${municipalities.length} municipios).`}
+            </p>
           )}
         </div>
       </div>

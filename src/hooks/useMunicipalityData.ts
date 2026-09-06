@@ -2,6 +2,7 @@ import { useState, useCallback, useRef } from 'react';
 import type { Contract, Goal, RealContract, ProcurementStats } from '../utils/types';
 import {
   fetchContractsByMunicipality,
+  fetchContractsByDepartment,
 } from '../services/datosGovService';
 import { analyzeRealContracts, getSemaphoreStats } from '../services/semaforoService';
 import {
@@ -32,7 +33,7 @@ export function useMunicipalityData() {
   const [error, setError] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
 
-  const loadMunicipalityData = useCallback(async (municipalityCode: string) => {
+  const loadLocationData = useCallback(async (departmentCode: string, municipalityCode?: string) => {
     abortRef.current?.abort();
     abortRef.current = new AbortController();
 
@@ -40,14 +41,17 @@ export function useMunicipalityData() {
     setError(null);
 
     try {
-      const realContracts = await fetchContractsByMunicipality(municipalityCode, 200);
+      const realContracts = municipalityCode && municipalityCode.trim()
+        ? await fetchContractsByMunicipality(municipalityCode, 200)
+        : await fetchContractsByDepartment(departmentCode, 200);
 
       if (abortRef.current.signal.aborted) return;
 
+      const entityCode = municipalityCode || departmentCode;
       const contracts = analyzeRealContracts(realContracts);
-      const thresholds = getLegalThresholds(municipalityCode);
-      const anomalies = detectAnomalies(realContracts, municipalityCode);
-      const splitting = detectContractSplitting(realContracts, municipalityCode);
+      const thresholds = getLegalThresholds(entityCode);
+      const anomalies = detectAnomalies(realContracts, entityCode);
+      const splitting = detectContractSplitting(realContracts, entityCode);
       const semStats = getSemaphoreStats(contracts);
 
       const directCount = realContracts.filter((c) =>
@@ -66,12 +70,20 @@ export function useMunicipalityData() {
       setData({ contracts, goals: [], realContracts, stats, splitting, semaphoreStats: semStats });
     } catch (err) {
       if (err instanceof Error && err.name !== 'AbortError') {
-        setError(err.message || 'Error al cargar datos del municipio');
+        setError(err.message || 'Error al cargar contratos de la ubicación');
       }
     } finally {
       setIsLoading(false);
     }
   }, []);
+
+  const loadMunicipalityData = useCallback(
+    async (municipalityCode: string) => {
+      const departmentCode = municipalityCode.substring(0, 2);
+      await loadLocationData(departmentCode, municipalityCode);
+    },
+    [loadLocationData],
+  );
 
   const reset = useCallback(() => {
     abortRef.current?.abort();
@@ -87,5 +99,5 @@ export function useMunicipalityData() {
     setError(null);
   }, []);
 
-  return { ...data, isLoading, error, loadMunicipalityData, reset };
+  return { ...data, isLoading, error, loadLocationData, loadMunicipalityData, reset };
 }

@@ -25,6 +25,7 @@ import {
   fetchDepartments,
   fetchMunicipalitiesByDepartment,
   fetchContractsByMunicipality,
+  fetchContractsByDepartment,
   mapRealContractToContract,
 } from './services/datosGovService';
 import { useMunicipalityData } from './hooks/useMunicipalityData';
@@ -62,6 +63,7 @@ const App: React.FC = () => {
     semaphoreStats,
     isLoading,
     error,
+    loadLocationData,
     loadMunicipalityData,
     reset,
   } = useMunicipalityData();
@@ -80,34 +82,43 @@ const App: React.FC = () => {
     fetchDepartments().then(async (depts) => {
       setDepartments(depts);
       const urlMun = searchParams.get('municipio');
+      const urlDept = searchParams.get('departamento');
+
       if (urlMun && urlMun.length >= 5) {
         const deptCode = urlMun.substring(0, 2);
         setSelectedDepartment(deptCode);
         const muns = await fetchMunicipalitiesByDepartment(deptCode);
         setMunicipalities(muns);
         setSelectedMunicipality(urlMun);
-        loadMunicipalityData(urlMun);
+        loadLocationData(deptCode, urlMun);
+      } else if (urlDept) {
+        setSelectedDepartment(urlDept);
+        const muns = await fetchMunicipalitiesByDepartment(urlDept);
+        setMunicipalities(muns);
+        loadLocationData(urlDept);
       }
     });
-  }, [searchParams, loadMunicipalityData]);
+  }, [searchParams, loadLocationData]);
 
   const handleDepartmentChange = useCallback(
     async (code: string) => {
       setSelectedDepartment(code);
       setSelectedMunicipality('');
       setMunicipalities([]);
-      reset();
       setExpandedCategories(new Set());
       setSearchParams(code ? { departamento: code } : {});
 
       if (code) {
         setIsLoadingMunicipalities(true);
+        loadLocationData(code);
         const muns = await fetchMunicipalitiesByDepartment(code);
         setMunicipalities(muns);
         setIsLoadingMunicipalities(false);
+      } else {
+        reset();
       }
     },
-    [reset, setSearchParams],
+    [loadLocationData, reset, setSearchParams],
   );
 
   const handleMunicipalityChange = useCallback(
@@ -116,17 +127,19 @@ const App: React.FC = () => {
       setExpandedCategories(new Set());
       if (code) {
         setSearchParams({ municipio: code });
-        loadMunicipalityData(code);
+        loadLocationData(selectedDepartment, code);
+      } else if (selectedDepartment) {
+        setSearchParams({ departamento: selectedDepartment });
+        loadLocationData(selectedDepartment);
       } else {
-        setSearchParams(selectedDepartment ? { departamento: selectedDepartment } : {});
         reset();
       }
     },
-    [loadMunicipalityData, reset, selectedDepartment, setSearchParams],
+    [loadLocationData, reset, selectedDepartment, setSearchParams],
   );
 
   const handleConsultarSecop = useCallback(async () => {
-    if (!selectedMunicipality) return;
+    if (!selectedDepartment && !selectedMunicipality) return;
     setIsLoadingSecop(true);
     modals.openSecop();
 
@@ -135,14 +148,16 @@ const App: React.FC = () => {
     }
 
     try {
-      const loaded = await fetchContractsByMunicipality(selectedMunicipality, 100);
+      const loaded = selectedMunicipality
+        ? await fetchContractsByMunicipality(selectedMunicipality, 100)
+        : await fetchContractsByDepartment(selectedDepartment, 100);
       if (loaded && loaded.length > 0) {
         setSecopContracts(loaded);
       }
     } finally {
       setIsLoadingSecop(false);
     }
-  }, [selectedMunicipality, realContracts, modals]);
+  }, [selectedDepartment, selectedMunicipality, realContracts, modals]);
 
   const toggleCategory = (category: string) => {
     setExpandedCategories((prev) => {
@@ -160,8 +175,15 @@ const App: React.FC = () => {
     return acc;
   }, {});
 
+  const selectedDepartmentName =
+    departments.find((d) => d.code === selectedDepartment)?.name || '';
   const selectedMunicipalityName =
     municipalities.find((m) => m.code === selectedMunicipality)?.name || '';
+  const currentLocationLabel = selectedMunicipalityName
+    ? `${selectedMunicipalityName} (${selectedDepartmentName || 'Municipio'})`
+    : selectedDepartmentName
+      ? `${selectedDepartmentName} (Nivel Departamental)`
+      : '';
 
   // Mapeo verídico para consultas de vigilancia especializadas
   const minorContracts: MinorContract[] = useMemo(() => {
@@ -172,7 +194,7 @@ const App: React.FC = () => {
       })
       .map((c) => ({
         id: c.id_contrato || c.referencia_del_contrato || 'N/A',
-        municipalityCode: selectedMunicipality,
+        municipalityCode: selectedMunicipality || selectedDepartment,
         contractorName: c.proveedor_adjudicado || 'No adjudicado',
         contractorNit: c.nit_entidad || 'N/A',
         contractorAddress: c.ciudad || '',
@@ -180,7 +202,7 @@ const App: React.FC = () => {
         value: Number(c.valor_contrato) || Number(c.valor_del_contrato) || 0,
         object: c.objeto_del_contrato || c.descripcion_del_proceso || 'Sin descripción',
       }));
-  }, [realContracts, selectedMunicipality]);
+  }, [realContracts, selectedMunicipality, selectedDepartment]);
 
   const interContracts: InteradministrativeContract[] = useMemo(() => {
     return realContracts
@@ -200,7 +222,7 @@ const App: React.FC = () => {
       })
       .map((c) => ({
         id: c.id_contrato || c.referencia_del_contrato || 'N/A',
-        municipalityCode: selectedMunicipality,
+        municipalityCode: selectedMunicipality || selectedDepartment,
         contractorName: c.proveedor_adjudicado || 'No adjudicado',
         contractorNit: c.nit_entidad || 'N/A',
         contractorAddress: c.ciudad || '',
@@ -210,7 +232,7 @@ const App: React.FC = () => {
         startDate: c.fecha_inicio_ejecucion || c.fecha_de_firma || '',
         endDate: c.fecha_fin_ejecucion || '',
       }));
-  }, [realContracts, selectedMunicipality]);
+  }, [realContracts, selectedMunicipality, selectedDepartment]);
 
   const housingContracts: HousingContract[] = useMemo(() => {
     return realContracts
@@ -231,7 +253,7 @@ const App: React.FC = () => {
       })
       .map((c) => ({
         id: c.id_contrato || c.referencia_del_contrato || 'N/A',
-        municipalityCode: selectedMunicipality,
+        municipalityCode: selectedMunicipality || selectedDepartment,
         object: c.objeto_del_contrato || c.descripcion_del_proceso || 'Proyecto habitacional',
         value: Number(c.valor_contrato) || Number(c.valor_del_contrato) || 0,
         contractorName: c.proveedor_adjudicado || 'No adjudicado',
@@ -240,7 +262,7 @@ const App: React.FC = () => {
         subsidyType: 'Mejoramiento',
         address: c.ciudad || '',
       }));
-  }, [realContracts, selectedMunicipality]);
+  }, [realContracts, selectedMunicipality, selectedDepartment]);
 
   return (
     <div className="min-h-screen bg-slate-50 font-sans">
@@ -257,7 +279,7 @@ const App: React.FC = () => {
             isLoadingMunicipalities={isLoadingMunicipalities}
           />
 
-          {selectedMunicipality && (
+          {(selectedDepartment || selectedMunicipality) && (
             <div className="space-y-4">
               {/* Barra de Acciones Principales */}
               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
@@ -307,7 +329,7 @@ const App: React.FC = () => {
                 <div className="stat-card flex items-center justify-between gap-3">
                   <ExportButton
                     contracts={realContracts}
-                    municipalityName={selectedMunicipalityName}
+                    municipalityName={currentLocationLabel || 'Contratos'}
                   />
                   <button
                     onClick={modals.openAlerts}
@@ -371,9 +393,9 @@ const App: React.FC = () => {
                   </p>
                 </div>
               </div>
-              {selectedMunicipality && (
+              {(selectedDepartment || selectedMunicipality) && (
                 <button
-                  onClick={() => loadMunicipalityData(selectedMunicipality)}
+                  onClick={() => loadLocationData(selectedDepartment, selectedMunicipality)}
                   className="px-4 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-xs font-semibold whitespace-nowrap transition-colors shadow-sm self-start sm:self-auto"
                 >
                   Reintentar consulta
@@ -382,7 +404,7 @@ const App: React.FC = () => {
             </div>
           )}
 
-          {(selectedMunicipality || isLoading) && (
+          {(selectedDepartment || selectedMunicipality || isLoading) && (
             <DashboardStats stats={stats} isLoading={isLoading} />
           )}
 
@@ -402,7 +424,7 @@ const App: React.FC = () => {
 
           <DetectionPotential />
 
-          {selectedMunicipality && !isLoading && (
+          {(selectedDepartment || selectedMunicipality) && !isLoading && (
             <div className="space-y-6">
               {contracts.length > 0 && (
                 <div>
@@ -410,7 +432,7 @@ const App: React.FC = () => {
                     <div>
                       <h2 className="text-xl font-bold text-slate-800">Contratos por Categoría</h2>
                       <p className="text-sm text-slate-600 -mt-1">
-                        {contracts.length} contratos analizados con reglas de semáforo
+                        {contracts.length} contratos analizados con reglas de semáforo {currentLocationLabel ? `(${currentLocationLabel})` : ''}
                       </p>
                     </div>
                   </div>
@@ -472,12 +494,12 @@ const App: React.FC = () => {
             </div>
           )}
 
-          {!selectedMunicipality && !isLoading && (
+          {!selectedDepartment && !selectedMunicipality && !isLoading && (
             <div className="text-center py-16 px-4 bg-white rounded-lg border border-dashed">
               <BuildingOfficeIcon className="w-12 h-12 mx-auto text-slate-400 mb-4" />
-              <h3 className="text-lg font-medium text-slate-700">Selecciona un municipio</h3>
+              <h3 className="text-lg font-medium text-slate-700">Selecciona un departamento o municipio</h3>
               <p className="text-slate-500 mt-1">
-                Utiliza los filtros de arriba para auditar los contratos públicos en tiempo real.
+                Elige un departamento de la lista para auditar sus contratos públicos en tiempo real.
               </p>
             </div>
           )}
@@ -512,7 +534,7 @@ const App: React.FC = () => {
         <SecopContractsModal
           isOpen={modals.secopOpen}
           contracts={secopContracts}
-          municipalityName={selectedMunicipalityName}
+          municipalityName={currentLocationLabel || 'Ubicación seleccionada'}
           onClose={modals.closeSecop}
           isLoading={isLoadingSecop}
         />
@@ -573,14 +595,14 @@ const App: React.FC = () => {
         isOpen={modals.entityOpen}
         onClose={modals.closeEntity}
         entityName={modals.entityName}
-        currentMunicipalityCode={selectedMunicipality}
+        currentMunicipalityCode={selectedMunicipality || selectedDepartment}
       />
 
       {/* Modales Especializados Rescatados e Integrados */}
       {modals.minorOpen && (
         <MinorContractsModal
           contracts={minorContracts}
-          municipalityName={selectedMunicipalityName}
+          municipalityName={currentLocationLabel || 'Ubicación seleccionada'}
           onClose={modals.closeMinor}
           isLoading={isLoading}
         />
@@ -589,7 +611,7 @@ const App: React.FC = () => {
       {modals.interOpen && (
         <InteradministrativeContractsModal
           contracts={interContracts}
-          municipalityName={selectedMunicipalityName}
+          municipalityName={currentLocationLabel || 'Ubicación seleccionada'}
           onClose={modals.closeInter}
           isLoading={isLoading}
         />
@@ -598,7 +620,7 @@ const App: React.FC = () => {
       {modals.housingOpen && (
         <HousingContractsModal
           contracts={housingContracts}
-          municipalityName={selectedMunicipalityName}
+          municipalityName={currentLocationLabel || 'Ubicación seleccionada'}
           onClose={modals.closeHousing}
           isLoading={isLoading}
         />
