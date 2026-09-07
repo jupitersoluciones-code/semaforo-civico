@@ -23,15 +23,17 @@ import InteradministrativeContractsModal from './components/InteradministrativeC
 import HousingContractsModal from './components/HousingContractsModal';
 import ContractorsSearchModal from './components/ContractorsSearchModal';
 import ForensicAuditModal from './components/ForensicAuditModal';
+import DecentralizedEntitiesModal from './components/DecentralizedEntitiesModal';
 import {
   fetchDepartments,
   fetchMunicipalitiesByDepartment,
   fetchContractsByMunicipality,
   fetchContractsByDepartment,
+  fetchContractsByDecentralizedEntity,
   mapRealContractToContract,
   resolveDepartmentCode,
 } from './services/datosGovService';
-import { FEATURED_DEPARTMENTS } from './utils/constants';
+import { FEATURED_DEPARTMENTS, DECENTRALIZED_ENTITIES } from './utils/constants';
 import { useMunicipalityData } from './hooks/useMunicipalityData';
 import { useModals } from './hooks/useModals';
 import type {
@@ -41,6 +43,7 @@ import type {
   MinorContract,
   InteradministrativeContract,
   HousingContract,
+  DecentralizedEntityId,
 } from './utils/types';
 import { ChevronDownIcon, SearchIcon, BuildingOfficeIcon, BoltIcon, WarningIcon } from './components/Icons';
 import { ToastContainer, type ToastMessage } from './components/Toast';
@@ -52,6 +55,7 @@ const App: React.FC = () => {
   const [municipalities, setMunicipalities] = useState<Municipality[]>([]);
   const [selectedDepartment, setSelectedDepartment] = useState('');
   const [selectedMunicipality, setSelectedMunicipality] = useState('');
+  const [selectedEntity, setSelectedEntity] = useState<string>('all');
   const [isLoadingMunicipalities, setIsLoadingMunicipalities] = useState(false);
 
   const [secopContracts, setSecopContracts] = useState<RealContract[]>([]);
@@ -87,6 +91,8 @@ const App: React.FC = () => {
       setDepartments(depts);
       const urlMun = searchParams.get('municipio');
       const urlDept = searchParams.get('departamento');
+      const urlEntity = searchParams.get('entidad') || 'all';
+      if (urlEntity) setSelectedEntity(urlEntity);
 
       if (urlMun && urlMun.length >= 5) {
         const deptCode = urlMun.substring(0, 2);
@@ -94,13 +100,13 @@ const App: React.FC = () => {
         const muns = await fetchMunicipalitiesByDepartment(deptCode);
         setMunicipalities(muns);
         setSelectedMunicipality(urlMun);
-        loadLocationData(deptCode, urlMun);
+        loadLocationData(deptCode, urlMun, urlEntity);
       } else if (urlDept) {
         const resolved = resolveDepartmentCode(urlDept) || urlDept;
         setSelectedDepartment(resolved);
         const muns = await fetchMunicipalitiesByDepartment(resolved);
         setMunicipalities(muns);
-        loadLocationData(resolved);
+        loadLocationData(resolved, undefined, urlEntity);
       }
     });
   }, [searchParams, loadLocationData]);
@@ -111,11 +117,14 @@ const App: React.FC = () => {
       setSelectedMunicipality('');
       setMunicipalities([]);
       setExpandedCategories(new Set());
-      setSearchParams(code ? { departamento: code } : {});
+      const nextParams: Record<string, string> = {};
+      if (code) nextParams.departamento = code;
+      if (selectedEntity && selectedEntity !== 'all') nextParams.entidad = selectedEntity;
+      setSearchParams(nextParams);
 
       if (code) {
         setIsLoadingMunicipalities(true);
-        loadLocationData(code);
+        loadLocationData(code, undefined, selectedEntity);
         const muns = await fetchMunicipalitiesByDepartment(code);
         setMunicipalities(muns);
         setIsLoadingMunicipalities(false);
@@ -123,24 +132,45 @@ const App: React.FC = () => {
         reset();
       }
     },
-    [loadLocationData, reset, setSearchParams],
+    [loadLocationData, reset, selectedEntity, setSearchParams],
   );
 
   const handleMunicipalityChange = useCallback(
     async (code: string) => {
       setSelectedMunicipality(code);
       setExpandedCategories(new Set());
+      const nextParams: Record<string, string> = {};
+      if (code) nextParams.municipio = code;
+      else if (selectedDepartment) nextParams.departamento = selectedDepartment;
+      if (selectedEntity && selectedEntity !== 'all') nextParams.entidad = selectedEntity;
+      setSearchParams(nextParams);
+
       if (code) {
-        setSearchParams({ municipio: code });
-        loadLocationData(selectedDepartment, code);
+        loadLocationData(selectedDepartment, code, selectedEntity);
       } else if (selectedDepartment) {
-        setSearchParams({ departamento: selectedDepartment });
-        loadLocationData(selectedDepartment);
+        loadLocationData(selectedDepartment, undefined, selectedEntity);
       } else {
         reset();
       }
     },
-    [loadLocationData, reset, selectedDepartment, setSearchParams],
+    [loadLocationData, reset, selectedDepartment, selectedEntity, setSearchParams],
+  );
+
+  const handleEntityChange = useCallback(
+    (entityId: string) => {
+      setSelectedEntity(entityId);
+      setExpandedCategories(new Set());
+      const nextParams: Record<string, string> = {};
+      if (selectedMunicipality) nextParams.municipio = selectedMunicipality;
+      else if (selectedDepartment) nextParams.departamento = selectedDepartment;
+      if (entityId && entityId !== 'all') nextParams.entidad = entityId;
+      setSearchParams(nextParams);
+
+      if (selectedDepartment || selectedMunicipality) {
+        loadLocationData(selectedDepartment, selectedMunicipality, entityId);
+      }
+    },
+    [loadLocationData, selectedDepartment, selectedMunicipality, setSearchParams],
   );
 
   const handleConsultarSecop = useCallback(async () => {
@@ -184,11 +214,15 @@ const App: React.FC = () => {
     departments.find((d) => d.code === selectedDepartment)?.name || '';
   const selectedMunicipalityName =
     municipalities.find((m) => m.code === selectedMunicipality)?.name || '';
-  const currentLocationLabel = selectedMunicipalityName
+  const selectedEntityDef = DECENTRALIZED_ENTITIES.find((e) => e.id === selectedEntity);
+  const baseLocation = selectedMunicipalityName
     ? `${selectedMunicipalityName} (${selectedDepartmentName || 'Municipio'})`
     : selectedDepartmentName
       ? `${selectedDepartmentName} (Nivel Departamental)`
       : '';
+  const currentLocationLabel = baseLocation && selectedEntityDef
+    ? `${baseLocation} • ${selectedEntityDef.icon} ${selectedEntityDef.shortName}`
+    : baseLocation;
 
   // Mapeo verídico para consultas de vigilancia especializadas
   const minorContracts: MinorContract[] = useMemo(() => {
@@ -279,8 +313,11 @@ const App: React.FC = () => {
             municipalities={municipalities}
             selectedDepartment={selectedDepartment}
             selectedMunicipality={selectedMunicipality}
+            selectedEntity={selectedEntity}
             onDepartmentChange={handleDepartmentChange}
             onMunicipalityChange={handleMunicipalityChange}
+            onEntityChange={handleEntityChange}
+            onOpenDecentralizedModal={modals.openDecentralized}
             isLoadingMunicipalities={isLoadingMunicipalities}
           />
 
@@ -378,6 +415,13 @@ const App: React.FC = () => {
                     >
                       <span>🏠</span>
                       Vivienda & Subsidios ({housingContracts.length})
+                    </button>
+                    <button
+                      onClick={modals.openDecentralized}
+                      className="text-xs font-semibold px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-lg transition-colors flex items-center gap-1.5"
+                    >
+                      <span>🏢</span>
+                      Entidades Descentralizadas
                     </button>
                     <button
                       onClick={modals.openContractorsSearch}
@@ -683,6 +727,19 @@ const App: React.FC = () => {
         isOpen={modals.forensicAuditOpen}
         onClose={modals.closeForensicAudit}
         contract={modals.forensicAuditContract}
+      />
+
+      {/* Modal de Auditoría Especializada a Entidades Descentralizadas */}
+      <DecentralizedEntitiesModal
+        isOpen={modals.decentralizedOpen}
+        onClose={modals.closeDecentralized}
+        departments={departments}
+        municipalities={municipalities}
+        initialDepartment={selectedDepartment}
+        initialMunicipality={selectedMunicipality}
+        initialEntityId={selectedEntity as DecentralizedEntityId}
+        onViewDetailsClick={(c) => modals.openDetails(c)}
+        onAlertClick={(c) => modals.openAlert(c)}
       />
 
       {/* Contenedor flotante de notificaciones Toast */}

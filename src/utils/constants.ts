@@ -1,4 +1,4 @@
-import type { Department, Municipality } from './types';
+import type { Department, Municipality, DecentralizedEntityDef } from './types';
 
 export const DEPARTMENTS: Department[] = [
     { code: '91', name: 'Amazonas' },
@@ -59,6 +59,63 @@ export const FEATURED_DEPARTMENTS: FeaturedDepartment[] = [
   { code: '85', name: 'Casanare', icon: '🐎', region: 'Orinoquía', capital: 'Yopal' },
   { code: '05', name: 'Antioquia', icon: '🏔️', region: 'Andina', capital: 'Medellín' },
   { code: '11', name: 'Bogotá, D.C.', icon: '🏛️', region: 'Capital', capital: 'Bogotá' },
+];
+
+export const DECENTRALIZED_ENTITIES: DecentralizedEntityDef[] = [
+  {
+    id: 'ese_hospital',
+    name: 'E.S.E. y Hospitales Públicos',
+    shortName: 'E.S.E. / Hospitales',
+    icon: '🏥',
+    description: 'Empresas Sociales del Estado, Hospitales Municipales y Departamentales de la red pública de salud.',
+    patterns: ['HOSPITAL', 'EMPRESA SOCIAL DEL ESTADO', 'E.S.E.'],
+    scope: 'territorial',
+  },
+  {
+    id: 'sena',
+    name: 'Servicio Nacional de Aprendizaje (SENA)',
+    shortName: 'SENA',
+    icon: '🎓',
+    description: 'Direcciones regionales, centros de formación técnica y tecnológica del SENA.',
+    patterns: ['SERVICIO NACIONAL DE APRENDIZAJE', 'SENA'],
+    scope: 'territorial',
+  },
+  {
+    id: 'ica',
+    name: 'Instituto Colombiano Agropecuario (ICA)',
+    shortName: 'ICA',
+    icon: '🌱',
+    description: 'Seccionales departamentales y gerencias del sector agropecuario y sanidad animal/vegetal.',
+    patterns: ['INSTITUTO COLOMBIANO AGROPECUARIO', 'ICA'],
+    scope: 'territorial',
+  },
+  {
+    id: 'ant',
+    name: 'Agencia Nacional de Tierras (ANT)',
+    shortName: 'Agencia de Tierras (ANT)',
+    icon: '🗺️',
+    description: 'Planes de ordenamiento social de la propiedad rural, predios y rutas territoriales.',
+    patterns: ['AGENCIA NACIONAL DE TIERRAS', 'ANT'],
+    scope: 'national_territorial',
+  },
+  {
+    id: 'inder',
+    name: 'Institutos de Deporte y Recreación (INDER / IMDER)',
+    shortName: 'INDER / Deporte',
+    icon: '🏃',
+    description: 'Institutos municipales y departamentales para fomento del deporte, recreación y escenarios deportivos.',
+    patterns: ['INDER', 'IMDER', 'INDEPORTES', 'INSTITUTO DE DEPORTE', 'INSTITUTO MUNICIPAL DE DEPORTE'],
+    scope: 'territorial',
+  },
+  {
+    id: 'aunap',
+    name: 'Autoridad Nacional de Acuicultura y Pesca (AUNAP / UNAP)',
+    shortName: 'AUNAP / UNAP',
+    icon: '🐟',
+    description: 'Fomento pesquero, acuicultura y ordenamiento pesquero territorial y continental.',
+    patterns: ['AUNAP', 'AUTORIDAD NACIONAL DE ACUICULTURA', 'UNAP'],
+    scope: 'national_territorial',
+  },
 ];
 
 export const MUNICIPALITIES: Municipality[] = [

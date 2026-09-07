@@ -1,8 +1,9 @@
 import { useState, useCallback, useRef } from 'react';
-import type { Contract, Goal, RealContract, ProcurementStats } from '../utils/types';
+import type { Contract, Goal, RealContract, ProcurementStats, DecentralizedEntityId } from '../utils/types';
 import {
   fetchContractsByMunicipality,
   fetchContractsByDepartment,
+  fetchContractsByDecentralizedEntity,
 } from '../services/datosGovService';
 import { analyzeRealContracts, getSemaphoreStats } from '../services/semaforoService';
 import {
@@ -33,7 +34,7 @@ export function useMunicipalityData() {
   const [error, setError] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
 
-  const loadLocationData = useCallback(async (departmentCode: string, municipalityCode?: string) => {
+  const loadLocationData = useCallback(async (departmentCode: string, municipalityCode?: string, entityFilter?: string) => {
     abortRef.current?.abort();
     abortRef.current = new AbortController();
 
@@ -41,9 +42,19 @@ export function useMunicipalityData() {
     setError(null);
 
     try {
-      const realContracts = municipalityCode && municipalityCode.trim()
-        ? await fetchContractsByMunicipality(municipalityCode, 200)
-        : await fetchContractsByDepartment(departmentCode, 200);
+      let realContracts: RealContract[] = [];
+      if (entityFilter && entityFilter !== 'all') {
+        realContracts = await fetchContractsByDecentralizedEntity(
+          entityFilter as DecentralizedEntityId,
+          departmentCode,
+          municipalityCode,
+          200,
+        );
+      } else if (municipalityCode && municipalityCode.trim()) {
+        realContracts = await fetchContractsByMunicipality(municipalityCode, 200);
+      } else {
+        realContracts = await fetchContractsByDepartment(departmentCode, 200);
+      }
 
       if (abortRef.current.signal.aborted) return;
 

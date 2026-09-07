@@ -17,6 +17,7 @@ interface ModalState {
   alertsOpen: boolean;
   contractorsSearchOpen: boolean;
   forensicAuditOpen: boolean;
+  decentralizedOpen: boolean;
   entityName: string;
   selectedRealContract: RealContract | null;
 }
@@ -37,6 +38,7 @@ const initialState: ModalState = {
   alertsOpen: false,
   contractorsSearchOpen: false,
   forensicAuditOpen: false,
+  decentralizedOpen: false,
   entityName: '',
   selectedRealContract: null,
 };
@@ -156,6 +158,14 @@ export function useModals() {
     setState((s) => ({ ...s, forensicAuditOpen: false, forensicAuditContract: null }));
   }, []);
 
+  const openDecentralized = useCallback(() => {
+    setState((s) => ({ ...s, decentralizedOpen: true }));
+  }, []);
+
+  const closeDecentralized = useCallback(() => {
+    setState((s) => ({ ...s, decentralizedOpen: false }));
+  }, []);
+
   return {
     ...state,
     openDetails,
@@ -186,5 +196,7 @@ export function useModals() {
     closeContractorsSearch,
     openForensicAudit,
     closeForensicAudit,
+    openDecentralized,
+    closeDecentralized,
   };
 }

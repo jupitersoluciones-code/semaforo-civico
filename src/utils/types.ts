@@ -189,3 +189,23 @@ export interface CeroCorrupcionStats {
   porModalidad: Record<string, number>;
   porDepartamento: Record<string, number>;
 }
+
+export type DecentralizedEntityId =
+  | 'all'
+  | 'ese_hospital'
+  | 'sena'
+  | 'ica'
+  | 'ant'
+  | 'inder'
+  | 'aunap';
+
+export interface DecentralizedEntityDef {
+  id: DecentralizedEntityId;
+  name: string;
+  shortName: string;
+  icon: string;
+  description: string;
+  patterns: string[];
+  scope: 'territorial' | 'national_territorial';
+}
+

@@ -1,6 +1,6 @@
 import { fetchWithCache, fetchJson } from './apiClient';
-import type { RealContract, Contract, Department, Municipality } from '../utils/types';
-import { DEPARTMENTS, MUNICIPALITIES } from '../utils/constants';
+import type { RealContract, Contract, Department, Municipality, DecentralizedEntityId } from '../utils/types';
+import { DEPARTMENTS, MUNICIPALITIES, DECENTRALIZED_ENTITIES } from '../utils/constants';
 
 const SOCRATA_BASE_URL = 'https://www.datos.gov.co/resource';
 const SECOP_CONTRACTS_ID = 'jbjy-vk9h';
@@ -138,10 +138,12 @@ export function buildSoqlWhereClause(
   deptNameOrCode: string,
   cityName?: string,
   isProcessDataset = false,
+  entityFilter?: string,
 ): string {
   const deptCol = isProcessDataset ? 'departamento_entidad' : 'departamento';
   const cityCol = isProcessDataset ? 'ciudad_entidad' : 'ciudad';
   const entityCol = isProcessDataset ? 'entidad' : 'nombre_entidad';
+  const descCol = isProcessDataset ? 'descripci_n_del_procedimiento' : 'objeto_del_contrato';
 
   const resolvedDepts = normalizeSecopDepartment(deptNameOrCode);
   const deptConditions: string[] = [];
@@ -177,6 +179,30 @@ export function buildSoqlWhereClause(
       ];
       const uniqueCityConds = Array.from(new Set(cityConds));
       clause += ` AND (${uniqueCityConds.join(' OR ')})`;
+    }
+  }
+
+  // Soporte para filtro de entidad descentralizada
+  if (entityFilter && entityFilter !== 'all') {
+    const entityDef = DECENTRALIZED_ENTITIES.find((e) => e.id === entityFilter);
+    if (entityDef) {
+      const entityConds = entityDef.patterns.map((p) => {
+        if (p.length <= 4) {
+          return `upper(${entityCol})='${p}' OR upper(${entityCol}) like '${p} %' OR upper(${entityCol}) like '% ${p}' OR upper(${entityCol}) like '% ${p} %' OR upper(${entityCol}) like '% - ${p}%'`;
+        }
+        return `upper(${entityCol}) like '%${p}%'`;
+      });
+      if (entityDef.scope === 'national_territorial') {
+        const objectConds = entityDef.patterns.map((p) => {
+          if (p.length <= 4) {
+            return `upper(${descCol})='${p}' OR upper(${descCol}) like '${p} %' OR upper(${descCol}) like '% ${p}' OR upper(${descCol}) like '% ${p} %'`;
+          }
+          return `upper(${descCol}) like '%${p}%'`;
+        });
+        clause += ` AND ((${entityConds.join(' OR ')}) OR (${objectConds.join(' OR ')}))`;
+      } else {
+        clause += ` AND (${entityConds.join(' OR ')})`;
+      }
     }
   }
 
@@ -268,6 +294,89 @@ export async function fetchContractsByMunicipality(
   }
 
   return [];
+}
+
+function matchesEntityPattern(text: string, pattern: string): boolean {
+  if (pattern.length <= 4) {
+    const regex = new RegExp(`(^|[^a-zA-Z0-9áéíóúÁÉÍÓÚñÑ])${pattern}([^a-zA-Z0-9áéíóúÁÉÍÓÚñÑ]|$)`, 'i');
+    return regex.test(text);
+  }
+  return text.toUpperCase().includes(pattern.toUpperCase());
+}
+
+export function filterContractsByDecentralizedEntity(
+  contracts: RealContract[],
+  entityId: string,
+): RealContract[] {
+  if (!entityId || entityId === 'all') return contracts;
+  const def = DECENTRALIZED_ENTITIES.find((e) => e.id === entityId);
+  if (!def) return contracts;
+
+  return contracts.filter((c) => {
+    const entityName = c.nombre_entidad || c.entidad || '';
+    const objectDesc = c.objeto_del_contrato || c.descripcion_del_proceso || '';
+
+    // 1. Coincidencia directa por nombre de la entidad
+    const matchEntity = def.patterns.some((pattern) => matchesEntityPattern(entityName, pattern));
+    if (matchEntity) return true;
+
+    // 2. Para entidades nacionales con ejecución territorial (ANT, AUNAP), verificar objeto
+    if (def.scope === 'national_territorial') {
+      const matchObject = def.patterns.some((pattern) => matchesEntityPattern(objectDesc, pattern));
+      if (matchObject) return true;
+    }
+
+    return false;
+  });
+}
+
+export async function fetchContractsByDecentralizedEntity(
+  entityId: DecentralizedEntityId,
+  departmentCode: string,
+  municipalityCode?: string,
+  limit = 200,
+): Promise<RealContract[]> {
+  if (!entityId || entityId === 'all') {
+    return municipalityCode
+      ? fetchContractsByMunicipality(municipalityCode, limit)
+      : fetchContractsByDepartment(departmentCode, limit);
+  }
+
+  const resolvedDeptCode = resolveDepartmentCode(departmentCode) || departmentCode;
+  const dept = getDeptInfo(resolvedDeptCode);
+  const deptName = dept?.name || departmentCode;
+  const mun = municipalityCode ? getMunInfo(municipalityCode) : undefined;
+  const cityName = mun?.name || '';
+
+  const whereClause = buildSoqlWhereClause(deptName, cityName, false, entityId);
+  const cacheKey = `contracts_decentralized_v3_${entityId}_${resolvedDeptCode}_${municipalityCode || 'dept'}_${limit}`;
+
+  // 1. Intento primario: proxy
+  const proxyUrl = `/api/secop?where=${encodeURIComponent(whereClause)}&limit=${limit}&resourceId=${SECOP_CONTRACTS_ID}`;
+  try {
+    const contracts = await fetchWithCache<RealContract[]>(proxyUrl, cacheKey);
+    if (Array.isArray(contracts) && contracts.length > 0) {
+      return contracts;
+    }
+  } catch (proxyErr) {
+    console.warn('Proxy no disponible para entidad descentralizada, usando directo:', proxyErr);
+  }
+
+  // 2. Intento secundario: consulta directa a Socrata
+  const params = new URLSearchParams({
+    $where: whereClause,
+    $order: 'fecha_de_firma DESC',
+    $limit: String(limit),
+  });
+
+  const directUrl = `${SOCRATA_BASE_URL}/${SECOP_CONTRACTS_ID}.json?${params.toString()}`;
+  try {
+    const contracts = await fetchWithCache<RealContract[]>(directUrl, cacheKey);
+    return Array.isArray(contracts) ? contracts : [];
+  } catch (err) {
+    console.warn('Fallo consulta directa de entidad descentralizada:', err);
+    return [];
+  }
 }
 
 export async function fetchContractProcessesByMunicipality(

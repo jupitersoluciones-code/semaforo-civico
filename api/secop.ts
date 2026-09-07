@@ -41,6 +41,15 @@ const DEPT_ALIASES: Record<string, string[]> = {
   '99': ['Vichada'],
 };
 
+const DECENTRALIZED_PATTERNS: Record<string, string[]> = {
+  ese_hospital: ['HOSPITAL', 'EMPRESA SOCIAL DEL ESTADO', 'E.S.E.'],
+  sena: ['SERVICIO NACIONAL DE APRENDIZAJE', 'SENA'],
+  ica: ['INSTITUTO COLOMBIANO AGROPECUARIO', 'ICA'],
+  ant: ['AGENCIA NACIONAL DE TIERRAS', 'ANT'],
+  inder: ['INDER', 'IMDER', 'INDEPORTES', 'INSTITUTO DE DEPORTE', 'INSTITUTO MUNICIPAL DE DEPORTE'],
+  aunap: ['AUNAP', 'AUTORIDAD NACIONAL DE ACUICULTURA', 'UNAP'],
+};
+
 export default async function handler(req: any, res: any) {
   const allowedOrigin = process.env.ALLOWED_ORIGIN || '*';
   res.setHeader('Access-Control-Allow-Origin', allowedOrigin);
@@ -59,6 +68,7 @@ export default async function handler(req: any, res: any) {
     const {
       departamento,
       ciudad,
+      entidadDescentralizada,
       limit = '100',
       query,
       resourceId = DEFAULT_RESOURCE_ID,
@@ -150,6 +160,13 @@ export default async function handler(req: any, res: any) {
           whereClause += ` AND (${uniqueConds.join(' OR ')})`;
         }
       }
+
+      if (entidadDescentralizada && DECENTRALIZED_PATTERNS[entidadDescentralizada]) {
+        const patterns = DECENTRALIZED_PATTERNS[entidadDescentralizada];
+        const entConds = patterns.map((p) => `upper(${entityCol}) like '%${p}%'`);
+        whereClause += ` AND (${entConds.join(' OR ')})`;
+      }
+
       params.append('$where', whereClause);
     }
 
