@@ -21,13 +21,17 @@ import AlertsHistoryModal from './components/AlertsHistoryModal';
 import MinorContractsModal from './components/MinorContractsModal';
 import InteradministrativeContractsModal from './components/InteradministrativeContractsModal';
 import HousingContractsModal from './components/HousingContractsModal';
+import ContractorsSearchModal from './components/ContractorsSearchModal';
+import ForensicAuditModal from './components/ForensicAuditModal';
 import {
   fetchDepartments,
   fetchMunicipalitiesByDepartment,
   fetchContractsByMunicipality,
   fetchContractsByDepartment,
   mapRealContractToContract,
+  resolveDepartmentCode,
 } from './services/datosGovService';
+import { FEATURED_DEPARTMENTS } from './utils/constants';
 import { useMunicipalityData } from './hooks/useMunicipalityData';
 import { useModals } from './hooks/useModals';
 import type {
@@ -92,10 +96,11 @@ const App: React.FC = () => {
         setSelectedMunicipality(urlMun);
         loadLocationData(deptCode, urlMun);
       } else if (urlDept) {
-        setSelectedDepartment(urlDept);
-        const muns = await fetchMunicipalitiesByDepartment(urlDept);
+        const resolved = resolveDepartmentCode(urlDept) || urlDept;
+        setSelectedDepartment(resolved);
+        const muns = await fetchMunicipalitiesByDepartment(resolved);
         setMunicipalities(muns);
-        loadLocationData(urlDept);
+        loadLocationData(resolved);
       }
     });
   }, [searchParams, loadLocationData]);
@@ -266,7 +271,7 @@ const App: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-slate-50 font-sans">
-      <Header />
+      <Header onOpenContractorsSearch={modals.openContractorsSearch} />
       <main className="container mx-auto p-4 md:p-6">
         <div className="space-y-6">
           <FilterControls
@@ -373,6 +378,13 @@ const App: React.FC = () => {
                     >
                       <span>🏠</span>
                       Vivienda & Subsidios ({housingContracts.length})
+                    </button>
+                    <button
+                      onClick={modals.openContractorsSearch}
+                      className="text-xs font-semibold px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-lg transition-colors flex items-center gap-1.5"
+                    >
+                      <span>🏛️</span>
+                      Auditar Contratantes y Licitantes
                     </button>
                   </div>
                 </div>
@@ -495,12 +507,41 @@ const App: React.FC = () => {
           )}
 
           {!selectedDepartment && !selectedMunicipality && !isLoading && (
-            <div className="text-center py-16 px-4 bg-white rounded-lg border border-dashed">
-              <BuildingOfficeIcon className="w-12 h-12 mx-auto text-slate-400 mb-4" />
-              <h3 className="text-lg font-medium text-slate-700">Selecciona un departamento o municipio</h3>
-              <p className="text-slate-500 mt-1">
-                Elige un departamento de la lista para auditar sus contratos públicos en tiempo real.
-              </p>
+            <div className="py-10 px-4 bg-white rounded-xl border border-slate-200 shadow-sm">
+              <div className="text-center max-w-xl mx-auto mb-8">
+                <BuildingOfficeIcon className="w-12 h-12 mx-auto text-blue-600 mb-3" />
+                <h3 className="text-xl font-bold text-slate-800">Selecciona un departamento para consultar</h3>
+                <p className="text-slate-600 text-sm mt-1.5">
+                  Elige un departamento del menú superior o pulsa cualquiera de los departamentos recomendados a continuación para auditar sus contratos de SECOP II en tiempo real:
+                </p>
+              </div>
+
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4 gap-3 max-w-5xl mx-auto">
+                {FEATURED_DEPARTMENTS.map((dept) => (
+                  <button
+                    key={dept.code}
+                    onClick={() => handleDepartmentChange(dept.code)}
+                    className="p-3.5 text-left rounded-xl border border-slate-200 hover:border-blue-400 bg-slate-50 hover:bg-blue-50/50 hover:shadow-md transition-all duration-150 group flex flex-col justify-between"
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <span className="text-2xl group-hover:scale-110 transition-transform duration-150">{dept.icon}</span>
+                      <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 group-hover:text-blue-600 bg-white px-2 py-0.5 rounded-full border border-slate-200">
+                        {dept.region}
+                      </span>
+                    </div>
+                    <div className="mt-2.5">
+                      <h4 className="font-bold text-slate-800 text-sm group-hover:text-blue-700 transition-colors">
+                        {dept.name}
+                      </h4>
+                      <p className="text-xs text-slate-500">Cap: {dept.capital}</p>
+                    </div>
+                    <div className="mt-3 pt-2 border-t border-slate-200/60 flex items-center justify-between text-xs text-blue-600 font-medium group-hover:translate-x-0.5 transition-transform">
+                      <span>Auditar</span>
+                      <span>→</span>
+                    </div>
+                  </button>
+                ))}
+              </div>
             </div>
           )}
         </div>
@@ -552,6 +593,9 @@ const App: React.FC = () => {
           onAIClick={(c) => {
             modals.closeDetails();
             modals.openAI(c);
+          }}
+          onForensicAuditClick={(c) => {
+            modals.openForensicAudit(c);
           }}
         />
       )}
@@ -625,6 +669,21 @@ const App: React.FC = () => {
           isLoading={isLoading}
         />
       )}
+
+      {/* Modal de Búsqueda Nacional de Entidades Compradoras y Empresas Licitantes */}
+      <ContractorsSearchModal
+        isOpen={modals.contractorsSearchOpen}
+        onClose={modals.closeContractorsSearch}
+        onSelectContract={(c) => modals.openDetails(c)}
+        onForensicAudit={(c) => modals.openForensicAudit(c)}
+      />
+
+      {/* Modal de Dictamen Pericial Forense FAEPP */}
+      <ForensicAuditModal
+        isOpen={modals.forensicAuditOpen}
+        onClose={modals.closeForensicAudit}
+        contract={modals.forensicAuditContract}
+      />
 
       {/* Contenedor flotante de notificaciones Toast */}
       <ToastContainer toasts={toasts} onDismiss={removeToast} />

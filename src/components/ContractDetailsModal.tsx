@@ -11,6 +11,7 @@ interface Props {
   onAlertClick: (contract: Contract) => void;
   onComparePricesClick: (contract: Contract) => void;
   onAIClick?: (contract: Contract) => void;
+  onForensicAuditClick?: (contract: Contract) => void;
 }
 
 type TabType = 'resumen' | 'dependencia' | 'pliegos' | 'auditoria';
@@ -21,6 +22,7 @@ const ContractDetailsModal: React.FC<Props> = ({
   onAlertClick,
   onComparePricesClick,
   onAIClick,
+  onForensicAuditClick,
 }) => {
   const [activeTab, setActiveTab] = useState<TabType>('resumen');
   const [audit, setAudit] = useState<{ riskScore: number; analysis: string } | null>(null);
@@ -388,35 +390,53 @@ const ContractDetailsModal: React.FC<Props> = ({
             </div>
           )}
 
-          {/* PESTAÑA 4: AUDITORÍA IA */}
+          {/* PESTAÑA 4: AUDITORÍA FORENSE FAEPP */}
           {activeTab === 'auditoria' && (
             <div className="space-y-4">
-              <div className="bg-purple-50 border border-purple-200 p-4 rounded-xl">
+              <div className="bg-slate-900 border border-purple-900/50 text-white p-4 rounded-xl shadow-md">
                 <div className="flex items-start gap-3">
                   <div className="p-2 bg-purple-600 text-white rounded-lg shrink-0">
                     <BoltIcon className="w-5 h-5" />
                   </div>
-                  <div>
-                    <h3 className="text-xs font-bold text-purple-900 uppercase tracking-wider">
-                      Asistente de Auditoría de Pliegos y Riesgos (Gemini 3.6 Flash)
-                    </h3>
-                    <p className="text-xs text-purple-800 mt-1">
-                      Utiliza inteligencia artificial para auditar este contrato y detectar posibles banderas rojas, indicios de "pliego sastre", concentración o adiciones desproporcionadas.
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2">
+                      <h3 className="text-xs font-bold text-purple-300 uppercase tracking-wider">
+                        Motor de Auditoría Forense (FAEPP)
+                      </h3>
+                      <span className="text-[10px] bg-purple-950 text-purple-300 border border-purple-800 px-1.5 py-0.2 rounded font-mono">
+                        30 Años Exp. Pericial
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-300 mt-1 leading-relaxed">
+                      Somete este contrato a los protocolos periciales de <strong>Módulo A</strong> (Colusión y Cotizaciones Simuladas), <strong>Módulo B</strong> (Pliegos Sastre y Direccionamiento) y <strong>Módulo C</strong> (Anticipos y Sobrecostos), generando la <strong>Matriz de Hallazgos (HAL-FORENSIC)</strong> con tipificación penal, fiscal y disciplinaria.
                     </p>
                   </div>
                 </div>
 
-                {onAIClick && (
-                  <div className="mt-3 pt-3 border-t border-purple-200 flex justify-end">
-                    <button
-                      onClick={() => onAIClick(contract)}
-                      className="btn-primary bg-purple-600 hover:bg-purple-700 text-xs py-2 px-4 flex items-center gap-2"
-                    >
-                      <BoltIcon className="w-4 h-4" />
-                      Auditar Pliegos y Riesgos con IA
-                    </button>
+                <div className="mt-3 pt-3 border-t border-slate-800 flex flex-wrap items-center justify-between gap-2">
+                  <span className="text-[11px] text-slate-400">
+                    Extremo escepticismo profesional • Leyes 80/1993, 1150/2007, 1474/2011
+                  </span>
+                  <div className="flex items-center gap-2">
+                    {onAIClick && (
+                      <button
+                        onClick={() => onAIClick(contract)}
+                        className="text-xs font-semibold px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg transition-colors"
+                      >
+                        Consulta Rápida
+                      </button>
+                    )}
+                    {onForensicAuditClick && (
+                      <button
+                        onClick={() => onForensicAuditClick(contract)}
+                        className="btn-primary bg-purple-600 hover:bg-purple-500 text-xs py-1.5 px-4 flex items-center gap-2 font-bold shadow-lg shadow-purple-900/30"
+                      >
+                        <BoltIcon className="w-4 h-4" />
+                        Ejecutar Dictamen Forense FAEPP
+                      </button>
+                    )}
                   </div>
-                )}
+                </div>
               </div>
 
               {/* Análisis de Riesgo CeroCorrupción si está disponible */}

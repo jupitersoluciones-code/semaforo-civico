@@ -6,6 +6,7 @@ interface ModalState {
   priceContract: Contract | null;
   alertProject: Project | null;
   aiContract: Contract | null;
+  forensicAuditContract: Contract | null;
   secopOpen: boolean;
   minorOpen: boolean;
   interOpen: boolean;
@@ -14,6 +15,8 @@ interface ModalState {
   comparisonOpen: boolean;
   entityOpen: boolean;
   alertsOpen: boolean;
+  contractorsSearchOpen: boolean;
+  forensicAuditOpen: boolean;
   entityName: string;
   selectedRealContract: RealContract | null;
 }
@@ -23,6 +26,7 @@ const initialState: ModalState = {
   priceContract: null,
   alertProject: null,
   aiContract: null,
+  forensicAuditContract: null,
   secopOpen: false,
   minorOpen: false,
   interOpen: false,
@@ -31,6 +35,8 @@ const initialState: ModalState = {
   comparisonOpen: false,
   entityOpen: false,
   alertsOpen: false,
+  contractorsSearchOpen: false,
+  forensicAuditOpen: false,
   entityName: '',
   selectedRealContract: null,
 };
@@ -134,6 +140,22 @@ export function useModals() {
     setState((s) => ({ ...s, entityOpen: false, entityName: '' }));
   }, []);
 
+  const openContractorsSearch = useCallback(() => {
+    setState((s) => ({ ...s, contractorsSearchOpen: true }));
+  }, []);
+
+  const closeContractorsSearch = useCallback(() => {
+    setState((s) => ({ ...s, contractorsSearchOpen: false }));
+  }, []);
+
+  const openForensicAudit = useCallback((contract: Contract) => {
+    setState((s) => ({ ...s, forensicAuditOpen: true, forensicAuditContract: contract }));
+  }, []);
+
+  const closeForensicAudit = useCallback(() => {
+    setState((s) => ({ ...s, forensicAuditOpen: false, forensicAuditContract: null }));
+  }, []);
+
   return {
     ...state,
     openDetails,
@@ -160,5 +182,9 @@ export function useModals() {
     closeAlerts,
     openEntity,
     closeEntity,
+    openContractorsSearch,
+    closeContractorsSearch,
+    openForensicAudit,
+    closeForensicAudit,
   };
 }

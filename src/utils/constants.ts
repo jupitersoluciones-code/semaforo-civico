@@ -36,6 +36,31 @@ export const DEPARTMENTS: Department[] = [
     { code: '99', name: 'Vichada' }
 ];
 
+export interface FeaturedDepartment {
+  code: string;
+  name: string;
+  icon: string;
+  region: string;
+  capital: string;
+}
+
+export const FEATURED_DEPARTMENTS: FeaturedDepartment[] = [
+  { code: '23', name: 'Córdoba', icon: '🌾', region: 'Caribe', capital: 'Montería' },
+  { code: '08', name: 'Atlántico', icon: '🌊', region: 'Caribe', capital: 'Barranquilla' },
+  { code: '13', name: 'Bolívar', icon: '🏰', region: 'Caribe', capital: 'Cartagena' },
+  { code: '20', name: 'Cesar', icon: '🪗', region: 'Caribe', capital: 'Valledupar' },
+  { code: '47', name: 'Magdalena', icon: '🍌', region: 'Caribe', capital: 'Santa Marta' },
+  { code: '44', name: 'La Guajira', icon: '☀️', region: 'Caribe', capital: 'Riohacha' },
+  { code: '70', name: 'Sucre', icon: '🌴', region: 'Caribe', capital: 'Sincelejo' },
+  { code: '66', name: 'Risaralda', icon: '☕', region: 'Eje Cafetero', capital: 'Pereira' },
+  { code: '17', name: 'Caldas', icon: '🌋', region: 'Eje Cafetero', capital: 'Manizales' },
+  { code: '95', name: 'Guaviare', icon: '🌿', region: 'Amazonía', capital: 'San José del Guaviare' },
+  { code: '99', name: 'Vichada', icon: '🌅', region: 'Orinoquía', capital: 'Puerto Carreño' },
+  { code: '85', name: 'Casanare', icon: '🐎', region: 'Orinoquía', capital: 'Yopal' },
+  { code: '05', name: 'Antioquia', icon: '🏔️', region: 'Andina', capital: 'Medellín' },
+  { code: '11', name: 'Bogotá, D.C.', icon: '🏛️', region: 'Capital', capital: 'Bogotá' },
+];
+
 export const MUNICIPALITIES: Municipality[] = [
     { departmentCode: "05", name: "Medellín", code: "05001" },
     { departmentCode: "05", name: "Abejorral", code: "05002" },

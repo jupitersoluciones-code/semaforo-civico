@@ -10,12 +10,13 @@ export async function fetchDepartments(): Promise<Department[]> {
   return new Promise((resolve) => setTimeout(() => resolve(DEPARTMENTS), 30));
 }
 
-export async function fetchMunicipalitiesByDepartment(departmentCode: string): Promise<Municipality[]> {
+export async function fetchMunicipalitiesByDepartment(departmentCodeOrName: string): Promise<Municipality[]> {
+  const resolvedCode = resolveDepartmentCode(departmentCodeOrName) || departmentCodeOrName;
   return new Promise((resolve) =>
     setTimeout(
       () =>
         resolve(
-          MUNICIPALITIES.filter((m) => m.departmentCode === departmentCode).sort((a, b) =>
+          MUNICIPALITIES.filter((m) => m.departmentCode === resolvedCode).sort((a, b) =>
             a.name.localeCompare(b.name),
           ),
         ),
@@ -24,16 +25,47 @@ export async function fetchMunicipalitiesByDepartment(departmentCode: string): P
   );
 }
 
-export const SECOP_DEPARTMENT_MAP: Record<string, string> = {
-  '11': 'Distrito Capital de Bogotá',
-  'Bogotá, D.C.': 'Distrito Capital de Bogotá',
-  'Bogota, D.C.': 'Distrito Capital de Bogotá',
-  'Bogotá': 'Distrito Capital de Bogotá',
-  'Bogota': 'Distrito Capital de Bogotá',
-  '88': 'San Andrés, Providencia y Santa Catalina',
-  'San Andrés y Providencia': 'San Andrés, Providencia y Santa Catalina',
-  'San Andres y Providencia': 'San Andrés, Providencia y Santa Catalina',
+export function stripAccents(str: string): string {
+  return (str || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+}
+
+export const SECOP_DEPARTMENT_MAP: Record<string, string[]> = {
+  '11': ['Distrito Capital de Bogotá', 'Bogotá', 'Bogota'],
+  'Bogotá, D.C.': ['Distrito Capital de Bogotá', 'Bogotá', 'Bogota'],
+  'Bogota, D.C.': ['Distrito Capital de Bogotá', 'Bogotá', 'Bogota'],
+  'Bogotá': ['Distrito Capital de Bogotá', 'Bogotá', 'Bogota'],
+  'Bogota': ['Distrito Capital de Bogotá', 'Bogotá', 'Bogota'],
+  '44': ['La Guajira', 'Guajira'],
+  'La Guajira': ['La Guajira', 'Guajira'],
+  'Guajira': ['La Guajira', 'Guajira'],
+  '88': ['San Andrés, Providencia y Santa Catalina', 'San Andrés y Providencia'],
+  'San Andrés y Providencia': ['San Andrés, Providencia y Santa Catalina', 'San Andrés y Providencia'],
+  'San Andres y Providencia': ['San Andrés, Providencia y Santa Catalina', 'San Andrés y Providencia'],
 };
+
+export function resolveDepartmentCode(codeOrName: string): string | undefined {
+  const clean = (codeOrName || '').trim();
+  if (!clean) return undefined;
+
+  // Check code directly
+  const byCode = DEPARTMENTS.find((d) => d.code === clean);
+  if (byCode) return byCode.code;
+
+  const cleanLower = stripAccents(clean.toLowerCase());
+
+  // Specific alias checks
+  if (cleanLower === 'guajira' || cleanLower === 'la guajira') return '44';
+  if (cleanLower.includes('bogot')) return '11';
+  if (cleanLower.includes('san andres')) return '88';
+
+  // Check by accent-free name
+  const byName = DEPARTMENTS.find((d) => {
+    const dLower = stripAccents(d.name.toLowerCase());
+    return dLower === cleanLower || dLower.includes(cleanLower) || cleanLower.includes(dLower);
+  });
+
+  return byName?.code;
+}
 
 export function normalizeSecopDepartment(deptCodeOrName: string): string[] {
   const clean = (deptCodeOrName || '').trim();
@@ -41,31 +73,55 @@ export function normalizeSecopDepartment(deptCodeOrName: string): string[] {
 
   // Check direct mapping
   if (SECOP_DEPARTMENT_MAP[clean]) {
-    return [SECOP_DEPARTMENT_MAP[clean]];
+    return SECOP_DEPARTMENT_MAP[clean];
+  }
+
+  const cleanLower = stripAccents(clean.toLowerCase());
+
+  // Special aliases:
+  if (clean === '11' || cleanLower.includes('bogot')) {
+    return ['Distrito Capital de Bogotá', 'Bogotá', 'Bogota'];
+  }
+  if (clean === '88' || cleanLower.includes('san andres')) {
+    return ['San Andrés, Providencia y Santa Catalina', 'San Andrés y Providencia'];
+  }
+  if (clean === '44' || cleanLower === 'guajira' || cleanLower === 'la guajira') {
+    return ['La Guajira', 'Guajira'];
   }
 
   // Check department code
-  const dept = DEPARTMENTS.find((d) => d.code === clean);
-  if (dept) {
-    if (SECOP_DEPARTMENT_MAP[dept.code]) return [SECOP_DEPARTMENT_MAP[dept.code]];
-    if (SECOP_DEPARTMENT_MAP[dept.name]) return [SECOP_DEPARTMENT_MAP[dept.name]];
-    return [dept.name];
+  const deptByCode = DEPARTMENTS.find((d) => d.code === clean);
+  if (deptByCode) {
+    if (SECOP_DEPARTMENT_MAP[deptByCode.code]) return SECOP_DEPARTMENT_MAP[deptByCode.code];
+    if (SECOP_DEPARTMENT_MAP[deptByCode.name]) return SECOP_DEPARTMENT_MAP[deptByCode.name];
+    return [deptByCode.name];
+  }
+
+  // Check by name matching (accent-insensitive)
+  const deptByName = DEPARTMENTS.find(
+    (d) =>
+      stripAccents(d.name.toLowerCase()) === cleanLower ||
+      stripAccents(d.name.toLowerCase()).includes(cleanLower) ||
+      cleanLower.includes(stripAccents(d.name.toLowerCase())),
+  );
+  if (deptByName) {
+    if (SECOP_DEPARTMENT_MAP[deptByName.code]) return SECOP_DEPARTMENT_MAP[deptByName.code];
+    if (SECOP_DEPARTMENT_MAP[deptByName.name]) return SECOP_DEPARTMENT_MAP[deptByName.name];
+    return [deptByName.name];
   }
 
   return [clean];
 }
 
-function getDeptInfo(code: string): Department | undefined {
-  return DEPARTMENTS.find((d) => d.code === code);
+function getDeptInfo(codeOrName: string): Department | undefined {
+  const resolvedCode = resolveDepartmentCode(codeOrName) || codeOrName;
+  return DEPARTMENTS.find((d) => d.code === resolvedCode);
 }
 
 function getMunInfo(code: string): Municipality | undefined {
   return MUNICIPALITIES.find((m) => m.code === code);
 }
 
-function stripAccents(str: string): string {
-  return str.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-}
 
 type ModalidadType = 'Licitación Pública' | 'Contratación Directa' | 'Mínima Cuantía' | 'Selección Abreviada';
 
@@ -116,10 +172,11 @@ export async function fetchContractsByDepartment(
   departmentCode: string,
   limit = 200,
 ): Promise<RealContract[]> {
-  const dept = getDeptInfo(departmentCode);
+  const resolvedCode = resolveDepartmentCode(departmentCode) || departmentCode;
+  const dept = getDeptInfo(resolvedCode);
   const deptName = dept?.name || departmentCode;
   const whereClause = buildSoqlWhereClause(deptName);
-  const cacheKey = `contracts_dept_${departmentCode}_${limit}`;
+  const cacheKey = `contracts_dept_${resolvedCode}_${limit}`;
 
   // 1. Intento primario: a través del Proxy Serverless /api/secop
   const proxyUrl = `/api/secop?where=${encodeURIComponent(whereClause)}&limit=${limit}&resourceId=${SECOP_CONTRACTS_ID}`;
@@ -264,6 +321,74 @@ export async function searchContractsByText(
     return await fetchJson<RealContract[]>(url);
   } catch (error) {
     console.error('Error searching contracts:', error);
+    return [];
+  }
+}
+
+export async function fetchContractsByContractor(
+  contractorName: string,
+  limit = 100,
+): Promise<RealContract[]> {
+  const clean = contractorName.trim().replace(/'/g, "''").toUpperCase();
+  const whereClause = `upper(proveedor_adjudicado) like '%25${clean}%25'`;
+  const cacheKey = `contractor_${clean}_${limit}`;
+
+  // 1. Proxy
+  const proxyUrl = `/api/secop?where=${encodeURIComponent(whereClause)}&limit=${limit}&resourceId=${SECOP_CONTRACTS_ID}`;
+  try {
+    const contracts = await fetchWithCache<RealContract[]>(proxyUrl, cacheKey);
+    if (Array.isArray(contracts) && contracts.length > 0) return contracts;
+  } catch {
+    // Fallback
+  }
+
+  // 2. Directo Socrata
+  const params = new URLSearchParams({
+    $where: whereClause,
+    $order: 'fecha_de_firma DESC',
+    $limit: String(limit),
+  });
+
+  try {
+    const directUrl = `${SOCRATA_BASE_URL}/${SECOP_CONTRACTS_ID}.json?${params.toString()}`;
+    const contracts = await fetchWithCache<RealContract[]>(directUrl, cacheKey);
+    return Array.isArray(contracts) ? contracts : [];
+  } catch (err) {
+    console.error('Error al consultar contratos por contratista:', err);
+    return [];
+  }
+}
+
+export async function fetchContractsByEntityName(
+  entityName: string,
+  limit = 100,
+): Promise<RealContract[]> {
+  const clean = entityName.trim().replace(/'/g, "''").toUpperCase();
+  const whereClause = `upper(nombre_entidad) like '%25${clean}%25'`;
+  const cacheKey = `entity_${clean}_${limit}`;
+
+  // 1. Proxy
+  const proxyUrl = `/api/secop?where=${encodeURIComponent(whereClause)}&limit=${limit}&resourceId=${SECOP_CONTRACTS_ID}`;
+  try {
+    const contracts = await fetchWithCache<RealContract[]>(proxyUrl, cacheKey);
+    if (Array.isArray(contracts) && contracts.length > 0) return contracts;
+  } catch {
+    // Fallback
+  }
+
+  // 2. Directo Socrata
+  const params = new URLSearchParams({
+    $where: whereClause,
+    $order: 'fecha_de_firma DESC',
+    $limit: String(limit),
+  });
+
+  try {
+    const directUrl = `${SOCRATA_BASE_URL}/${SECOP_CONTRACTS_ID}.json?${params.toString()}`;
+    const contracts = await fetchWithCache<RealContract[]>(directUrl, cacheKey);
+    return Array.isArray(contracts) ? contracts : [];
+  } catch (err) {
+    console.error('Error al consultar contratos por entidad:', err);
     return [];
   }
 }

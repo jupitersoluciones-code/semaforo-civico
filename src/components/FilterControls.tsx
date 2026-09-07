@@ -1,5 +1,6 @@
 import React from 'react';
 import type { Department, Municipality } from '../utils/types';
+import { FEATURED_DEPARTMENTS } from '../utils/constants';
 import { LocationMarkerIcon } from './Icons';
 
 interface Props {
@@ -77,6 +78,37 @@ const FilterControls: React.FC<Props> = ({
                 : `Auditoría a nivel departamental (${municipalities.length} municipios).`}
             </p>
           )}
+        </div>
+      </div>
+
+      {/* Consultas rápidas por departamento */}
+      <div className="mt-4 pt-3 border-t border-slate-100">
+        <div className="flex items-center justify-between gap-2 mb-2">
+          <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+            Departamentos para consultar rápidamente:
+          </span>
+          <span className="text-xs text-slate-400">Clic para auditar</span>
+        </div>
+        <div className="flex flex-wrap gap-1.5">
+          {FEATURED_DEPARTMENTS.map((dept) => {
+            const isSelected = selectedDepartment === dept.code;
+            return (
+              <button
+                key={dept.code}
+                type="button"
+                onClick={() => onDepartmentChange(dept.code)}
+                className={`text-xs px-2.5 py-1 rounded-full font-medium transition-all duration-150 flex items-center gap-1.5 ${
+                  isSelected
+                    ? 'bg-blue-600 text-white shadow-sm ring-2 ring-blue-400 ring-offset-1 font-semibold'
+                    : 'bg-slate-100 text-slate-700 hover:bg-blue-50 hover:text-blue-700 hover:border-blue-200 border border-slate-200'
+                }`}
+                title={`Consultar ${dept.name} (${dept.capital})`}
+              >
+                <span>{dept.icon}</span>
+                <span>{dept.name}</span>
+              </button>
+            );
+          })}
         </div>
       </div>
     </div>

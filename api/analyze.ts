@@ -62,33 +62,75 @@ export default async function handler(req: any, res: any) {
   }
 
   try {
-    const { contract } = req.body || {};
+    const { contract, mode = 'forensic', auditFocus = 'forensic' } = req.body || {};
     if (!contract || typeof contract !== 'object') {
       return res.status(400).json({ error: 'Se requiere el objeto contract en el cuerpo de la solicitud.' });
     }
 
-    const { name, contractor, value, procurementMethod, executionPercentage } = contract;
+    const {
+      id,
+      name,
+      contractor,
+      value,
+      initialValue,
+      procurementMethod,
+      executionPercentage,
+      entityName,
+      processNumber,
+      moneyAdditionPercentage,
+      timeAdditionPercentage,
+      status,
+    } = contract;
 
+    const cleanId = String(id || 'N/A');
     const cleanName = String(name || 'N/A').substring(0, 500);
     const cleanContractor = String(contractor || 'N/A').substring(0, 200);
     const cleanProcurement = String(procurementMethod || 'N/A').substring(0, 100);
+    const cleanEntity = String(entityName || 'Entidad Pública').substring(0, 200);
+    const valNum = Number(value) || 0;
+    const initialNum = Number(initialValue) || valNum;
+    const execPct = Number(executionPercentage) || 0;
+    const addMoneyPct = Number(moneyAdditionPercentage) || 0;
+    const addTimePct = Number(timeAdditionPercentage) || 0;
 
-    const prompt = `
-Analiza este contrato público colombiano y señala riesgos de corrupción o irregularidades:
+    const systemPrompt = `
+# SYSTEM INSTRUCTION: FORENSIC AUDIT ENGINE FOR PUBLIC PROCUREMENT (FAEPP)
+Eres la inteligencia central de auditoría forense en contratación pública estatal (Estatuto General de Contratación Ley 80/1993, Ley 1150/2007, Ley 1474/2011 Estatuto Anticorrupción, Ley 2195/2022).
+Operas con 30 años de experiencia pericial de élite y bajo el principio de **EXTREMO ESCEPTICISMO PROFESIONAL**: la documentación oficial puede ser formalmente legal mientras materialmente es fraudulenta o lesiva para el erario.
 
-- Objeto: ${cleanName}
-- Contratista: ${cleanContractor}
-- Valor: COP ${(Number(value) || 0).toLocaleString('es-CO')}
-- Modalidad: ${cleanProcurement}
-- Ejecución física/financiera estimada: ${Number(executionPercentage) || 0}%
+Módulos de investigación forense a evaluar:
+- **MÓDULO A (Colusión, Proformas Falsas y Bid Rigging)**: Vínculos operacionales, empresas de papel/fachada creadas para licitar, ofertas de cobertura, variación lineal en propuestas competidoras.
+- **MÓDULO B (Pliegos Sastre y Direccionamiento)**: Exigencias hiper-restrictivas desproporcionadas, cronogramas comprimidos, índices financieros a la medida del proponente preseleccionado.
+- **MÓDULO C (Anticipos, Sobrecostos y Desfase Físico-Financiero)**: Amortización de anticipos vs avance físico real, adiciones presupuestales lesivas (>50% Contratos Avispa), facturación apócrifa.
 
-Proporciona de forma concisa y estructurada:
-1. Resumen ejecutivo de la contratación
-2. Señales de alerta específicas (si existen: sobrecostos, fraccionamiento, adición excesiva >50%, concentración o plazos desproporcionados)
-3. Preguntas clave y recomendaciones para las veedurías ciudadanas y órganos de control (Contraloría/Procuraduría)
+Enfoque de auditoría solicitado: ${auditFocus.toUpperCase()} (Preventiva, Disuasiva o Forense).
 
-Responde en español de forma profesional, clara y objetiva.
-`;
+## DATOS DEL PROCESO AUDITADO:
+- ID Contrato / Proceso: ${cleanId} ${processNumber ? `(Proceso: ${processNumber})` : ''}
+- Entidad Contratante: ${cleanEntity}
+- Contratista / Licitante Adjudicado: ${cleanContractor}
+- Objeto Contractual: ${cleanName}
+- Valor Actual: COP ${valNum.toLocaleString('es-CO')} ${initialNum && initialNum !== valNum ? `(Valor Inicial: COP ${initialNum.toLocaleString('es-CO')})` : ''}
+- Modalidad de Contratación: ${cleanProcurement}
+- Porcentaje de Adición Presupuestal: ${addMoneyPct}%
+- Porcentaje de Adición de Plazo: ${addTimePct}%
+- Avance Físico/Financiero Reportado: ${execPct}%
+- Semáforo Preliminar: ${status || 'No determinado'}
+
+## INSTRUCCIÓN DE SALIDA:
+Genera un informe pericial estructurado en formato Markdown impecable con:
+1. **DICTAMEN EJECUTIVO FORENSE**: Conclusión categórica sobre el cumplimiento de los principios de transparencia, objetividad y economía.
+2. **EVALUACIÓN DE MÓDULOS PERICIALES**:
+   - Módulo A: Riesgo de colusión y evaluación de empresa de papel.
+   - Módulo B: Riesgo de pliego sastre y direccionamiento contractual.
+   - Módulo C: Riesgo de sobrecostos, anticipos y desfase de ejecución de obra.
+3. **MATRIZ ESTANDARIZADA DE HALLAZGOS FORENSES (HAL-FORENSIC)**:
+   Presenta una tabla clara con:
+   | Código Hallazgo | Criterio (Norma Violada) | Condición (Hecho Probado) | Causa Raíz | Efecto (Detrimento/Impacto) | Responsabilidad (Cargos) | Alcance Legal (Penal / Fiscal / Disciplinario) |
+4. **ACCIONES PROBATORIAS INMEDIATAS (PARA VEEDURÍAS Y ENTES DE CONTROL)**:
+   Lista numerada con pruebas documentales y técnicas a requerir formalmente (inspección de obra, libros contables, trazabilidad bancaria de anticipos).
+
+Sé incisivo, técnico, objetivo y jurídicamente riguroso.`;
 
     const geminiModel = process.env.GEMINI_MODEL || 'gemini-3.6-flash';
     const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${geminiModel}:generateContent?key=${encodeURIComponent(
@@ -96,17 +138,17 @@ Responde en español de forma profesional, clara y objetiva.
     )}`;
 
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 20000);
+    const timeout = setTimeout(() => controller.abort(), 25000);
 
     const response = await fetch(geminiUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       signal: controller.signal,
       body: JSON.stringify({
-        contents: [{ parts: [{ text: prompt }] }],
+        contents: [{ parts: [{ text: systemPrompt }] }],
         generationConfig: {
-          temperature: 0.2,
-          maxOutputTokens: 900,
+          temperature: 0.15,
+          maxOutputTokens: 1800,
         },
       }),
     });

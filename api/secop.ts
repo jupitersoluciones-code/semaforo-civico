@@ -5,6 +5,42 @@
 const BASE_URL = 'https://www.datos.gov.co/resource';
 const DEFAULT_RESOURCE_ID = 'jbjy-vk9h'; // Contratos SECOP II
 
+const DEPT_ALIASES: Record<string, string[]> = {
+  '05': ['Antioquia'],
+  '08': ['Atlántico', 'Atlantico'],
+  '11': ['Distrito Capital de Bogotá', 'Bogotá', 'Bogota'],
+  '13': ['Bolívar', 'Bolivar'],
+  '15': ['Boyacá', 'Boyaca'],
+  '17': ['Caldas'],
+  '18': ['Caquetá', 'Caqueta'],
+  '19': ['Cauca'],
+  '20': ['Cesar'],
+  '23': ['Córdoba', 'Cordoba'],
+  '25': ['Cundinamarca'],
+  '27': ['Chocó', 'Choco'],
+  '41': ['Huila'],
+  '44': ['La Guajira', 'Guajira'],
+  '47': ['Magdalena'],
+  '50': ['Meta'],
+  '52': ['Nariño', 'Narino'],
+  '54': ['Norte de Santander'],
+  '63': ['Quindío', 'Quindio'],
+  '66': ['Risaralda'],
+  '68': ['Santander'],
+  '70': ['Sucre'],
+  '73': ['Tolima'],
+  '76': ['Valle del Cauca'],
+  '81': ['Arauca'],
+  '85': ['Casanare'],
+  '86': ['Putumayo'],
+  '88': ['San Andrés, Providencia y Santa Catalina', 'San Andrés y Providencia'],
+  '91': ['Amazonas'],
+  '94': ['Guainía', 'Guainia'],
+  '95': ['Guaviare'],
+  '97': ['Vaupés', 'Vaupes'],
+  '99': ['Vichada'],
+};
+
 export default async function handler(req: any, res: any) {
   const allowedOrigin = process.env.ALLOWED_ORIGIN || '*';
   res.setHeader('Access-Control-Allow-Origin', allowedOrigin);
@@ -53,17 +89,41 @@ export default async function handler(req: any, res: any) {
       const cleanQuery = String(query).replace(/'/g, "''");
       params.append('$where', `objeto_del_contrato like '%25${cleanQuery}%25'`);
     } else if (departamento) {
-      let deptStr = String(departamento).trim();
-      // Mapeo canónico a nombres SECOP II
-      if (deptStr === '11' || /bogot/i.test(deptStr)) {
-        deptStr = 'Distrito Capital de Bogotá';
-      } else if (deptStr === '88' || /san andr/i.test(deptStr)) {
-        deptStr = 'San Andrés, Providencia y Santa Catalina';
+      const rawDept = String(departamento).trim();
+      const normDept = rawDept.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+      let candidateNames: string[] = [];
+
+      if (DEPT_ALIASES[rawDept]) {
+        candidateNames = DEPT_ALIASES[rawDept];
+      } else {
+        for (const names of Object.values(DEPT_ALIASES)) {
+          if (
+            names.some((n) => {
+              const nNorm = n.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+              return nNorm === normDept || nNorm.includes(normDept) || normDept.includes(nNorm);
+            })
+          ) {
+            candidateNames = names;
+            break;
+          }
+        }
       }
 
-      const cleanDept = deptStr.toUpperCase().replace(/'/g, "''");
-      const cleanDeptNoAccents = cleanDept.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-      let whereClause = `(upper(departamento)='${cleanDept}' OR upper(departamento)='${cleanDeptNoAccents}')`;
+      if (candidateNames.length === 0) {
+        candidateNames = [rawDept];
+      }
+
+      const deptConds: string[] = [];
+      for (const name of candidateNames) {
+        const u = name.toUpperCase().replace(/'/g, "''");
+        const uNoAcc = u.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+        deptConds.push(`upper(departamento)='${u}'`);
+        if (uNoAcc !== u) {
+          deptConds.push(`upper(departamento)='${uNoAcc}'`);
+        }
+      }
+
+      let whereClause = `(${deptConds.join(' OR ')})`;
 
       if (ciudad && String(ciudad).trim()) {
         const cityStr = String(ciudad).trim();
