@@ -43,9 +43,8 @@ describe('Auditoría e Integración de Entidades Descentralizadas', () => {
 
     it('construye cláusula para Agencia Nacional de Tierras (ANT) considerando ejecución territorial', () => {
       const clause = buildSoqlWhereClause('Córdoba', undefined, false, 'ant');
-      expect(clause).toContain("upper(departamento)='CÓRDOBA'");
       expect(clause).toContain("upper(nombre_entidad) like '%AGENCIA NACIONAL DE TIERRAS%'");
-      expect(clause).toContain("upper(objeto_del_contrato) like '%AGENCIA NACIONAL DE TIERRAS%'");
+      expect(clause).toContain("upper(objeto_del_contrato) like '%CÓRDOBA%'");
     });
 
     it('construye cláusula para INDER / Institutos de Deporte', () => {

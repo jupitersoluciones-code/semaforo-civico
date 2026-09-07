@@ -141,30 +141,45 @@ export default async function handler(req: any, res: any) {
         }
       }
 
-      let whereClause = `(${deptConds.join(' OR ')})`;
-
-      if (ciudad && String(ciudad).trim()) {
-        const cityStr = String(ciudad).trim();
-        if (/bogot/i.test(cityStr)) {
-          whereClause += ` AND (upper(${cityCol})='BOGOTÁ' OR upper(${cityCol})='BOGOTA' OR upper(${cityCol})='DISTRITO CAPITAL' OR upper(${cityCol})='NO DEFINIDO')`;
-        } else {
-          const cleanCity = cityStr.toUpperCase().replace(/'/g, "''");
-          const cleanCityNoAccents = cleanCity.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-          const cityConds = [
-            `upper(${cityCol})='${cleanCity}'`,
-            `upper(${cityCol})='${cleanCityNoAccents}'`,
-            `upper(${entityCol}) like '%${cleanCity}%'`,
-            `upper(${entityCol}) like '%${cleanCityNoAccents}%'`,
-          ];
-          const uniqueConds = Array.from(new Set(cityConds));
-          whereClause += ` AND (${uniqueConds.join(' OR ')})`;
-        }
-      }
+      const queryCol = isProcessResource ? 'descripci_n_del_procedimiento' : 'objeto_del_contrato';
+      let whereClause = '';
 
       if (entidadDescentralizada && DECENTRALIZED_PATTERNS[entidadDescentralizada]) {
         const patterns = DECENTRALIZED_PATTERNS[entidadDescentralizada];
         const entConds = patterns.map((p) => `upper(${entityCol}) like '%${p}%'`);
-        whereClause += ` AND (${entConds.join(' OR ')})`;
+        const entMatch = `(${entConds.join(' OR ')})`;
+
+        if (entidadDescentralizada === 'ant' || entidadDescentralizada === 'aunap') {
+          const deptMatch = candidateNames
+            .map((name) => {
+              const u = name.toUpperCase().replace(/'/g, "''");
+              return `upper(${queryCol}) like '%${u}%' OR upper(${deptCol})='${u}'`;
+            })
+            .join(' OR ');
+          whereClause = `${entMatch} AND (${deptMatch})`;
+        } else {
+          whereClause = `(${deptConds.join(' OR ')}) AND ${entMatch}`;
+        }
+      } else {
+        whereClause = `(${deptConds.join(' OR ')})`;
+
+        if (ciudad && String(ciudad).trim()) {
+          const cityStr = String(ciudad).trim();
+          if (/bogot/i.test(cityStr)) {
+            whereClause += ` AND (upper(${cityCol})='BOGOTÁ' OR upper(${cityCol})='BOGOTA' OR upper(${cityCol})='DISTRITO CAPITAL' OR upper(${cityCol})='NO DEFINIDO')`;
+          } else {
+            const cleanCity = cityStr.toUpperCase().replace(/'/g, "''");
+            const cleanCityNoAccents = cleanCity.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+            const cityConds = [
+              `upper(${cityCol})='${cleanCity}'`,
+              `upper(${cityCol})='${cleanCityNoAccents}'`,
+              `upper(${entityCol}) like '%${cleanCity}%'`,
+              `upper(${entityCol}) like '%${cleanCityNoAccents}%'`,
+            ];
+            const uniqueConds = Array.from(new Set(cityConds));
+            whereClause += ` AND (${uniqueConds.join(' OR ')})`;
+          }
+        }
       }
 
       params.append('$where', whereClause);

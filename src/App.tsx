@@ -183,16 +183,26 @@ const App: React.FC = () => {
     }
 
     try {
-      const loaded = selectedMunicipality
-        ? await fetchContractsByMunicipality(selectedMunicipality, 100)
-        : await fetchContractsByDepartment(selectedDepartment, 100);
+      let loaded: RealContract[] = [];
+      if (selectedEntity && selectedEntity !== 'all') {
+        loaded = await fetchContractsByDecentralizedEntity(
+          selectedEntity as DecentralizedEntityId,
+          selectedDepartment,
+          selectedMunicipality,
+          100,
+        );
+      } else if (selectedMunicipality) {
+        loaded = await fetchContractsByMunicipality(selectedMunicipality, 100);
+      } else {
+        loaded = await fetchContractsByDepartment(selectedDepartment, 100);
+      }
       if (loaded && loaded.length > 0) {
         setSecopContracts(loaded);
       }
     } finally {
       setIsLoadingSecop(false);
     }
-  }, [selectedDepartment, selectedMunicipality, realContracts, modals]);
+  }, [selectedDepartment, selectedMunicipality, selectedEntity, realContracts, modals]);
 
   const toggleCategory = (category: string) => {
     setExpandedCategories((prev) => {

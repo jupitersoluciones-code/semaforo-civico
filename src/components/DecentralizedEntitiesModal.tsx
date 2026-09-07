@@ -292,6 +292,16 @@ const DecentralizedEntitiesModal: React.FC<Props> = ({
             </div>
           ) : (
             <div className="space-y-3">
+              {selectedMun && (
+                <div className="p-3 bg-indigo-50/70 border border-indigo-200 rounded-xl text-xs text-indigo-900 flex items-center gap-2.5 mb-3">
+                  <span className="text-lg shrink-0">🏛️</span>
+                  <div>
+                    <span className="font-bold">Cobertura Territorial y Regional:</span>{' '}
+                    Auditando contratos oficiales de <strong>{currentEntityDef.name}</strong> con operación, impacto y cobertura en{' '}
+                    <strong>{currentMunName}</strong> ({currentDeptName}).
+                  </div>
+                </div>
+              )}
               {filteredContracts.map((c) => {
                 const statusColor =
                   c.status === 'Verde'
