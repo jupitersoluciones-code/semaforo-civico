@@ -65,7 +65,7 @@ export async function fetchWithCache<T>(
 
 export async function fetchJson<T>(url: string, options: RequestInit = {}): Promise<T> {
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 30000);
+  const timeoutId = setTimeout(() => controller.abort(), 60000);
 
   try {
     const response = await fetch(url, {

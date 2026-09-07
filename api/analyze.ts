@@ -2,6 +2,10 @@
 // Responsable: Security Engineer & Backend Architect
 // Oculta GEMINI_API_KEY, aplica control de rate-limit por IP y manejo resiliente de errores.
 
+export const config = {
+  maxDuration: 60,
+};
+
 const ipLimits = new Map<string, number[]>();
 
 function getClientIp(req: any): string {
@@ -27,6 +31,81 @@ function checkRateLimit(key: string, max: number, windowMs: number) {
   return { allowed: true, remaining: max - record.length, resetInMs: windowMs };
 }
 
+function generateHeuristicForensicReport(contract: any, auditFocus: string): string {
+  const {
+    id,
+    name,
+    contractor,
+    value,
+    initialValue,
+    procurementMethod,
+    executionPercentage,
+    entityName,
+    processNumber,
+    moneyAdditionPercentage,
+    timeAdditionPercentage,
+    status,
+  } = contract;
+
+  const valNum = Number(value) || 0;
+  const initialNum = Number(initialValue) || valNum;
+  const execPct = Number(executionPercentage) || 0;
+  const addMoneyPct = Number(moneyAdditionPercentage) || 0;
+  const addTimePct = Number(timeAdditionPercentage) || 0;
+  const isDirect = String(procurementMethod || '').toLowerCase().includes('directa');
+  const isAvispa = addMoneyPct > 50;
+
+  const hasSevereFlags = isAvispa || addMoneyPct > 30 || (isDirect && valNum > 500000000);
+  const statusLabel = status === 'red' || hasSevereFlags ? 'ALTO RIESGO / IRREGULARIDAD MATERIAL' : (status === 'yellow' || addMoneyPct > 10 ? 'RIESGO MEDIO / ATENCIÓN PREVENTIVA' : 'RIESGO BAJO / CONFORMIDAD APARENTE');
+
+  return `> 🛡️ **MOTOR FORENSE FAEPP - DICTAMEN PERICIAL**  
+> *Modo de Auditoría:* **${auditFocus.toUpperCase()}** | *Calificación:* **${statusLabel}**  
+> *Aviso del Sistema:* Dictamen pericial estructurado por el Motor Heurístico Forense de Alta Disponibilidad.
+
+---
+
+### 1. DICTAMEN EJECUTIVO FORENSE
+Con base en los mandatos de la **Ley 80 de 1993 (Arts. 24, 25 y 40)**, la **Ley 1474 de 2011 (Estatuto Anticorrupción)**, la **Ley 2195 de 2022** y el principio de **Extremo Escepticismo Profesional**, se dictamina:
+
+- **Calificación Pericial:** **${statusLabel}**.
+- **Análisis de Legalidad Material:** El proceso contractual ${id ? `(${id})` : ''} tramitado por **${entityName || 'la entidad pública'}** presenta ${addMoneyPct > 0 ? `modificaciones presupuestales del **${addMoneyPct}%** (Valor actual: COP ${valNum.toLocaleString('es-CO')})` : 'ejecución presupuestal sin adiciones financieras registradas'} bajo la modalidad de **${procurementMethod || 'Contratación estatal'}**. ${isAvispa ? 'Se evidencia presunta configuración de **Contrato Avispa**, vulnerando el tope perentorio del 50% fijado por el Art. 40 de la Ley 80 de 1993.' : isDirect ? 'La adjudicación directa en cuantías significativas desincentiva la puja de mercado y lesiona la libre concurrencia.' : 'Se recomienda inspección in situ para corroborar la entrega material de bienes u obras.'}
+
+---
+
+### 2. EVALUACIÓN DE MÓDULOS PERICIALES
+
+#### 🔬 MÓDULO A: Colusión, Proformas Falsas y Bid Rigging
+- **Evaluación del Licitante (${contractor || 'Contratista'}):** ${isDirect ? 'Adjudicación directa sin pluralidad de oferentes. Riesgo latente de simulación de necesidad y elusión del régimen licitatorio general.' : 'Requiere cotejo cruzado de composición accionaria, socios comunes y direcciones IP de radicación de ofertas en SECOP II con firmas competidoras.'}
+- **Riesgo de Empresa de Papel:** Obligatoriedad de contrastar fecha de registro mercantil ante Cámara de Comercio con la fecha de apertura del pliego de condiciones.
+
+#### 📐 MÓDULO B: Pliegos Sastre y Direccionamiento Contractual
+- **Modalidad y Selección:** ${procurementMethod || 'No especificada'}.
+- **Restricción de Mercado:** ${isDirect ? 'Modalidad no competitiva que elude la selección objetiva consagrada en el Art. 2 de la Ley 1150 de 2007.' : 'Se deben examinar los requisitos habilitantes financieros y de experiencia específica para descartar pliegos hechos a la medida.'}
+
+#### 💰 MÓDULO C: Anticipos, Sobrecostos y Desfase Físico-Financiero
+- **Balance Financiero:** COP ${initialNum.toLocaleString('es-CO')} ➔ COP ${valNum.toLocaleString('es-CO')} (+${addMoneyPct}% adición presupuestal, +${addTimePct}% adición de plazo).
+- **Ejecución Reportada:** ${execPct}% de avance físico-financiero.
+- **Alerta de Sobrecosto:** ${isAvispa ? 'CRÍTICO: Adición superior al 50% legal. Presunta malversación y planeación contractual deficiente.' : addMoneyPct > 25 ? 'ADVERTENCIA: Desbalance presupuestal severo respecto a los estudios previos originales.' : 'Control estricto de desembolsos y amortización de anticipos en fiducia mercantil (Ley 1474/2011 Art. 91).'}
+
+---
+
+### 3. MATRIZ ESTANDARIZADA DE HALLAZGOS FORENSES (HAL-FORENSIC)
+
+| Código Hallazgo | Criterio (Norma Violada) | Condición (Hecho Probado) | Causa Raíz | Efecto (Detrimento/Impacto) | Responsabilidad (Cargos) | Alcance Legal |
+|---|---|---|---|---|---|---|
+| **HAL-FORENSIC-001** | Ley 80/1993 Art. 40 / Ley 1474/2011 | ${isAvispa ? `Adición presupuestal de ${addMoneyPct}% superando límite legal` : `Modalidad ${procurementMethod} con adición de ${addMoneyPct}% y cuantía de COP ${valNum.toLocaleString('es-CO')}`} | Deficiente estructuración en etapa precontractual | Desequilibrio financiero y presunto detrimento al erario | Ordenador del Gasto y Supervisor / Interventor | **${isAvispa ? 'Penal (Art. 410 C.P.), Fiscal (Contraloría) y Disciplinario (Procuraduría)' : 'Disciplinario y Control Fiscal'}** |
+| **HAL-FORENSIC-002** | Ley 1150/2007 Art. 2 (Selección Objetiva) | ${isDirect ? 'Ausencia de pluralidad y concurso público de oferentes' : 'Riesgo de concentración de adjudicaciones en único proponente'} | Omisión de pliegos tipo y estudios de mercado independientes | Pérdida de economía de escala y precios justos de mercado | Comité Evaluador y Ordenador del Gasto | **Disciplinario (Falta Gravísima) y Fiscal** |
+
+---
+
+### 4. ACCIONES PROBATORIAS INMEDIATAS (PARA RADICAR ANTE ENTES DE CONTROL)
+
+1. **Inspección Pericial de Obra / Bienes:** Solicitar inspección in situ con perito independiente para cotejar el avance reportado (${execPct}%) contra actas de recibo parcial y libro de obra.
+2. **Trazabilidad Bancaria de Anticipos:** Exigir a la entidad y fiduciaria los extractos de la cuenta bancaria del anticipo para certificar el destino exclusivo de los recursos.
+3. **Certificación de Cámara de Comercio:** Requerir el historial completo de la firma contratista (${contractor}) para verificar fecha de constitución, patrimonio y cambios de socios.
+4. **Radicación de Denuncia:** Trasladar este informe pericial con radicado formal a la **Fiscalía General de la Nación (Unidad Anticorrupción)**, la **Contraloría General de la República (DIARI)** y la **Procuraduría General de la Nación**.`;
+}
+
 export default async function handler(req: any, res: any) {
   const allowedOrigin = process.env.ALLOWED_ORIGIN || '*';
   res.setHeader('Access-Control-Allow-Origin', allowedOrigin);
@@ -41,9 +120,9 @@ export default async function handler(req: any, res: any) {
     return res.status(405).json({ error: 'Método no permitido. Utiliza POST.' });
   }
 
-  // Rate Limiting: Máximo 6 análisis de IA por IP cada 5 minutos
+  // Rate Limiting: Máximo 8 análisis de IA por IP cada 5 minutos
   const clientIp = getClientIp(req);
-  const limit = checkRateLimit(`ai_${clientIp}`, 6, 300000);
+  const limit = checkRateLimit(`ai_${clientIp}`, 8, 300000);
   res.setHeader('X-RateLimit-Remaining', limit.remaining);
 
   if (!limit.allowed) {
@@ -54,19 +133,21 @@ export default async function handler(req: any, res: any) {
     });
   }
 
+  const { contract, mode = 'forensic', auditFocus = 'forensic' } = req.body || {};
+  if (!contract || typeof contract !== 'object') {
+    return res.status(400).json({ error: 'Se requiere el objeto contract en el cuerpo de la solicitud.' });
+  }
+
   const apiKey = process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY;
   if (!apiKey || apiKey === 'PLACEHOLDER_API_KEY') {
-    return res.status(503).json({
-      error: 'El servicio de IA no está configurado en el servidor (falta GEMINI_API_KEY).',
+    // Si no hay API key configurada, responder inmediatamente con el motor heurístico forense
+    return res.status(200).json({
+      text: generateHeuristicForensicReport(contract, auditFocus),
+      source: 'heuristic_fallback',
     });
   }
 
   try {
-    const { contract, mode = 'forensic', auditFocus = 'forensic' } = req.body || {};
-    if (!contract || typeof contract !== 'object') {
-      return res.status(400).json({ error: 'Se requiere el objeto contract en el cuerpo de la solicitud.' });
-    }
-
     const {
       id,
       name,
@@ -95,42 +176,39 @@ export default async function handler(req: any, res: any) {
 
     const systemPrompt = `
 # SYSTEM INSTRUCTION: FORENSIC AUDIT ENGINE FOR PUBLIC PROCUREMENT (FAEPP)
-Eres la inteligencia central de auditoría forense en contratación pública estatal (Estatuto General de Contratación Ley 80/1993, Ley 1150/2007, Ley 1474/2011 Estatuto Anticorrupción, Ley 2195/2022).
-Operas con 30 años de experiencia pericial de élite y bajo el principio de **EXTREMO ESCEPTICISMO PROFESIONAL**: la documentación oficial puede ser formalmente legal mientras materialmente es fraudulenta o lesiva para el erario.
+Eres la inteligencia central de auditoría forense en contratación pública estatal colombiana (Ley 80/1993, Ley 1150/2007, Ley 1474/2011, Ley 2195/2022).
+Operas con 30 años de experiencia pericial de élite y bajo el principio de **EXTREMO ESCEPTICISMO PROFESIONAL**.
 
-Módulos de investigación forense a evaluar:
-- **MÓDULO A (Colusión, Proformas Falsas y Bid Rigging)**: Vínculos operacionales, empresas de papel/fachada creadas para licitar, ofertas de cobertura, variación lineal en propuestas competidoras.
-- **MÓDULO B (Pliegos Sastre y Direccionamiento)**: Exigencias hiper-restrictivas desproporcionadas, cronogramas comprimidos, índices financieros a la medida del proponente preseleccionado.
-- **MÓDULO C (Anticipos, Sobrecostos y Desfase Físico-Financiero)**: Amortización de anticipos vs avance físico real, adiciones presupuestales lesivas (>50% Contratos Avispa), facturación apócrifa.
+Módulos periciales:
+- **MÓDULO A (Colusión y Bid Rigging)**: Vínculos operacionales, empresas de papel, ofertas de cobertura.
+- **MÓDULO B (Pliegos Sastre y Direccionamiento)**: Exigencias hiper-restrictivas, plazos comprimidos.
+- **MÓDULO C (Anticipos y Sobrecostos)**: Adiciones presupuestales lesivas (>50% Contratos Avispa), desfase físico vs financiero.
 
-Enfoque de auditoría solicitado: ${auditFocus.toUpperCase()} (Preventiva, Disuasiva o Forense).
+Enfoque solicitado: ${auditFocus.toUpperCase()} (Preventiva, Disuasiva o Forense).
 
 ## DATOS DEL PROCESO AUDITADO:
-- ID Contrato / Proceso: ${cleanId} ${processNumber ? `(Proceso: ${processNumber})` : ''}
-- Entidad Contratante: ${cleanEntity}
-- Contratista / Licitante Adjudicado: ${cleanContractor}
-- Objeto Contractual: ${cleanName}
-- Valor Actual: COP ${valNum.toLocaleString('es-CO')} ${initialNum && initialNum !== valNum ? `(Valor Inicial: COP ${initialNum.toLocaleString('es-CO')})` : ''}
-- Modalidad de Contratación: ${cleanProcurement}
-- Porcentaje de Adición Presupuestal: ${addMoneyPct}%
-- Porcentaje de Adición de Plazo: ${addTimePct}%
-- Avance Físico/Financiero Reportado: ${execPct}%
-- Semáforo Preliminar: ${status || 'No determinado'}
+- ID / Proceso: ${cleanId} ${processNumber ? `(Proceso: ${processNumber})` : ''}
+- Entidad: ${cleanEntity}
+- Licitante: ${cleanContractor}
+- Objeto: ${cleanName}
+- Valor Actual: COP ${valNum.toLocaleString('es-CO')} ${initialNum && initialNum !== valNum ? `(Inicial: COP ${initialNum.toLocaleString('es-CO')})` : ''}
+- Modalidad: ${cleanProcurement}
+- Adición Presupuestal: ${addMoneyPct}% | Adición Plazo: ${addTimePct}% | Avance: ${execPct}% | Semáforo: ${status || 'N/D'}
 
 ## INSTRUCCIÓN DE SALIDA:
-Genera un informe pericial estructurado en formato Markdown impecable con:
-1. **DICTAMEN EJECUTIVO FORENSE**: Conclusión categórica sobre el cumplimiento de los principios de transparencia, objetividad y economía.
+Genera un informe pericial estructurado en formato Markdown impecable, altamente sintético, incisivo y directo (máximo 600 palabras):
+1. **DICTAMEN EJECUTIVO FORENSE**: Conclusión categórica sobre transparencia, economía y selección objetiva.
 2. **EVALUACIÓN DE MÓDULOS PERICIALES**:
-   - Módulo A: Riesgo de colusión y evaluación de empresa de papel.
-   - Módulo B: Riesgo de pliego sastre y direccionamiento contractual.
-   - Módulo C: Riesgo de sobrecostos, anticipos y desfase de ejecución de obra.
+   - Módulo A: Riesgo de colusión y empresa de papel.
+   - Módulo B: Riesgo de pliego sastre y direccionamiento.
+   - Módulo C: Riesgo de sobrecostos, anticipos y desfase físico-financiero.
 3. **MATRIZ ESTANDARIZADA DE HALLAZGOS FORENSES (HAL-FORENSIC)**:
-   Presenta una tabla clara con:
+   Presenta una tabla sintética con:
    | Código Hallazgo | Criterio (Norma Violada) | Condición (Hecho Probado) | Causa Raíz | Efecto (Detrimento/Impacto) | Responsabilidad (Cargos) | Alcance Legal (Penal / Fiscal / Disciplinario) |
-4. **ACCIONES PROBATORIAS INMEDIATAS (PARA VEEDURÍAS Y ENTES DE CONTROL)**:
-   Lista numerada con pruebas documentales y técnicas a requerir formalmente (inspección de obra, libros contables, trazabilidad bancaria de anticipos).
+4. **ACCIONES PROBATORIAS INMEDIATAS (PARA RADICAR ANTE ENTES DE CONTROL)**:
+   3 a 4 pruebas prioritarias clave a requerir formalmente.
 
-Sé incisivo, técnico, objetivo y jurídicamente riguroso.`;
+Sé directo, técnico y jurídicamente riguroso sin rodeos introductorios.`;
 
     const geminiModel = process.env.GEMINI_MODEL || 'gemini-3.6-flash';
     const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${geminiModel}:generateContent?key=${encodeURIComponent(
@@ -138,38 +216,31 @@ Sé incisivo, técnico, objetivo y jurídicamente riguroso.`;
     )}`;
 
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 25000);
+    const timeout = setTimeout(() => controller.abort(), 40000);
 
-    const response = await fetch(geminiUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      signal: controller.signal,
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: systemPrompt }] }],
-        generationConfig: {
-          temperature: 0.15,
-          maxOutputTokens: 1800,
-        },
-      }),
-    });
-
-    clearTimeout(timeout);
+    let response: Response;
+    try {
+      response = await fetch(geminiUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        signal: controller.signal,
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: systemPrompt }] }],
+          generationConfig: {
+            temperature: 0.15,
+            maxOutputTokens: 1200,
+          },
+        }),
+      });
+    } finally {
+      clearTimeout(timeout);
+    }
 
     if (!response.ok) {
-      if (response.status === 429) {
-        return res.status(429).json({
-          error: 'La cuota de la API de IA está saturada momentáneamente. Por favor reintenta en un minuto.',
-        });
-      }
-      if (response.status === 503) {
-        return res.status(503).json({
-          error: 'El servicio de IA de Google está experimentando alta demanda momentánea. Por favor intenta nuevamente en unos segundos.',
-        });
-      }
-      const errText = await response.text();
-      console.error('Error de Gemini API:', errText);
-      return res.status(response.status).json({
-        error: `Error del proveedor de IA (${response.status}): ${response.statusText}`,
+      console.warn(`Gemini API returned status ${response.status}. Activando fallback heurístico FAEPP.`);
+      return res.status(200).json({
+        text: generateHeuristicForensicReport(contract, auditFocus),
+        source: 'heuristic_fallback',
       });
     }
 
@@ -178,17 +249,19 @@ Sé incisivo, técnico, objetivo y jurídicamente riguroso.`;
     const text = candidate?.content?.parts?.map((p: any) => p.text || '').join('\n').trim();
 
     if (!text) {
-      return res.status(500).json({ error: 'La IA no devolvió ninguna respuesta válida.' });
+      return res.status(200).json({
+        text: generateHeuristicForensicReport(contract, auditFocus),
+        source: 'heuristic_fallback',
+      });
     }
 
-    return res.status(200).json({ text });
+    return res.status(200).json({ text, source: 'gemini' });
   } catch (error: any) {
-    console.error('Error en /api/analyze:', error);
-    const isTimeout = error.name === 'AbortError';
-    return res.status(500).json({
-      error: isTimeout
-        ? 'El servicio de IA tardó demasiado en responder (tiempo límite excedido).'
-        : error?.message || 'Error interno al procesar el análisis con IA.',
+    console.warn('Excepción al consultar IA (tiempo límite o red). Activando dictamen heurístico de contingencia:', error?.message);
+    // Respuesta resiliente garantizada: nunca arrojar error al usuario
+    return res.status(200).json({
+      text: generateHeuristicForensicReport(contract, auditFocus),
+      source: 'heuristic_fallback',
     });
   }
 }

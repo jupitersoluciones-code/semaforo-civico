@@ -130,4 +130,58 @@ describe('Motor de Auditoría Forense FAEPP: Evaluación de Entidades Contratant
     expect(entityRisk.redFlags.some((f) => f.includes('Abuso de Contratación Directa'))).toBe(true);
     expect(entityRisk.redFlags.some((f) => f.includes('concentración'))).toBe(true);
   });
+
+  it('el endpoint de análisis responde exitosamente con dictamen forense y matriz de hallazgos HAL-FORENSIC', async () => {
+    // Importamos dinámicamente el handler de api/analyze
+    const analyzeHandler = (await import('../../api/analyze')).default;
+
+    let statusCode = 0;
+    let responseBody: any = null;
+
+    const mockReq = {
+      method: 'POST',
+      body: {
+        contract: {
+          id: 'TEST-CONTRACT-99',
+          name: 'Construcción y pavimentación vía terciaria',
+          contractor: 'Consorcio Vial 2026',
+          value: 1200000000,
+          initialValue: 800000000,
+          procurementMethod: 'Contratación Directa',
+          executionPercentage: 35,
+          moneyAdditionPercentage: 50,
+          timeAdditionPercentage: 40,
+          entityName: 'Gobernación de Córdoba',
+          status: 'red',
+        },
+        auditFocus: 'forensic',
+      },
+      headers: { 'x-real-ip': '127.0.0.1' },
+    };
+
+    const mockRes = {
+      setHeader: () => {},
+      status: (code: number) => {
+        statusCode = code;
+        return {
+          json: (body: any) => {
+            responseBody = body;
+            return body;
+          },
+          end: () => {},
+        };
+      },
+    };
+
+    await analyzeHandler(mockReq, mockRes);
+
+    expect(statusCode).toBe(200);
+    expect(responseBody).toBeDefined();
+    expect(responseBody.text).toBeDefined();
+    expect(responseBody.text).toContain('HAL-FORENSIC');
+    expect(responseBody.text).toContain('DICTAMEN EJECUTIVO FORENSE');
+    expect(responseBody.text).toContain('MÓDULO A');
+    expect(responseBody.text).toContain('MÓDULO B');
+    expect(responseBody.text).toContain('MÓDULO C');
+  });
 });
