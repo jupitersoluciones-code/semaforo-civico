@@ -143,8 +143,6 @@ export default async function handler(req: any, res: any) {
           const cityConds = [
             `upper(${cityCol})='${cleanCity}'`,
             `upper(${cityCol})='${cleanCityNoAccents}'`,
-            `upper(${cityCol}) like '%${cleanCity}%'`,
-            `upper(${cityCol}) like '%${cleanCityNoAccents}%'`,
             `upper(${entityCol}) like '%${cleanCity}%'`,
             `upper(${entityCol}) like '%${cleanCityNoAccents}%'`,
           ];

@@ -1,5 +1,19 @@
-const CACHE_PREFIX = 'semaforo_cache_';
+const CACHE_PREFIX = 'semaforo_cache_v3_';
 const DEFAULT_TTL = 24 * 60 * 60 * 1000; // 24 hours
+
+// Limpieza automática de versiones de caché anteriores (para descartar datos antiguos con fallback a Montería)
+try {
+  if (typeof window !== 'undefined' && window.localStorage) {
+    for (let i = localStorage.length - 1; i >= 0; i--) {
+      const k = localStorage.key(i);
+      if (k && k.startsWith('semaforo_cache_') && !k.startsWith(CACHE_PREFIX)) {
+        localStorage.removeItem(k);
+      }
+    }
+  }
+} catch {
+  // Ignorar si el almacenamiento local está restringido
+}
 
 interface CacheEntry<T> {
   data: T;

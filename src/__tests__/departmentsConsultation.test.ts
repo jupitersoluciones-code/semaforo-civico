@@ -72,17 +72,18 @@ describe('Consulta de Departamentos Solicitados', () => {
     }
   });
 
-  it('construye cláusula WHERE robusta para municipios como Planeta Rica buscando en ciudad y entidad', () => {
+  it('construye cláusula WHERE robusta y de alto rendimiento para municipios buscando en ciudad y entidad', () => {
     const clause = buildSoqlWhereClause('Córdoba', 'Planeta Rica');
     
     // Debe incluir condición de departamento (con y sin tildes)
     expect(clause).toContain("upper(departamento)='CÓRDOBA'");
     expect(clause).toContain("upper(departamento)='CORDOBA'");
 
-    // Debe buscar tanto por campo ciudad como por nombre_entidad
+    // Debe buscar por igualdad exacta en ciudad (rápido en Socrata) y por LIKE en nombre_entidad
     expect(clause).toContain("upper(ciudad)='PLANETA RICA'");
-    expect(clause).toContain("upper(ciudad) like '%PLANETA RICA%'");
     expect(clause).toContain("upper(nombre_entidad) like '%PLANETA RICA%'");
+    // NO debe incluir LIKE en ciudad porque satura y agota el tiempo de respuesta de Socrata
+    expect(clause).not.toContain("upper(ciudad) like '%PLANETA RICA%'");
   });
 
   it('construye cláusula WHERE compatible con el dataset de procesos SECOP II (p6dx-8zbt)', () => {

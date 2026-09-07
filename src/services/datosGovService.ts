@@ -172,8 +172,6 @@ export function buildSoqlWhereClause(
       const cityConds = [
         `upper(${cityCol})='${cityUpper}'`,
         `upper(${cityCol})='${cityNoAccents}'`,
-        `upper(${cityCol}) like '%${cityUpper}%'`,
-        `upper(${cityCol}) like '%${cityNoAccents}%'`,
         `upper(${entityCol}) like '%${cityUpper}%'`,
         `upper(${entityCol}) like '%${cityNoAccents}%'`,
       ];
@@ -236,7 +234,7 @@ export async function fetchContractsByMunicipality(
   const deptName = dept.name;
   const cityName = mun?.name || '';
 
-  const cacheKey = `contracts_${municipalityCode}_${limit}`;
+  const cacheKey = `contracts_mun_v3_${municipalityCode}_${limit}`;
   const whereClause = buildSoqlWhereClause(deptName, cityName);
 
   // 1. Intento primario: a través del Proxy Serverless /api/secop (aprovecha App Token y caché Edge)
@@ -266,13 +264,10 @@ export async function fetchContractsByMunicipality(
       return contracts;
     }
   } catch (error) {
-    console.warn('Fallo consulta con ciudad específica, intentando por departamento:', error);
+    console.warn('Fallo consulta con ciudad específica:', error);
   }
 
-  // 3. Fallback terciario: si el municipio no arroja registros específicos bajo SECOP II,
-  // consultar por departamento para garantizar visualización y no dejar la interfaz en blanco
-  console.info(`No se encontraron contratos específicos para el municipio ${cityName} (${municipalityCode}), usando fallback del departamento ${deptName}`);
-  return await fetchContractsByDepartment(departmentCode, limit);
+  return [];
 }
 
 export async function fetchContractProcessesByMunicipality(
