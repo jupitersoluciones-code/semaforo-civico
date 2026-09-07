@@ -3,6 +3,7 @@ import {
   resolveDepartmentCode,
   normalizeSecopDepartment,
   fetchMunicipalitiesByDepartment,
+  buildSoqlWhereClause,
 } from '../services/datosGovService';
 import { FEATURED_DEPARTMENTS, DEPARTMENTS, MUNICIPALITIES } from '../utils/constants';
 
@@ -70,4 +71,28 @@ describe('Consulta de Departamentos Solicitados', () => {
       expect(featuredCodes, `FEATURED_DEPARTMENTS debe incluir ${item.expectedName}`).toContain(item.expectedCode);
     }
   });
+
+  it('construye cláusula WHERE robusta para municipios como Planeta Rica buscando en ciudad y entidad', () => {
+    const clause = buildSoqlWhereClause('Córdoba', 'Planeta Rica');
+    
+    // Debe incluir condición de departamento (con y sin tildes)
+    expect(clause).toContain("upper(departamento)='CÓRDOBA'");
+    expect(clause).toContain("upper(departamento)='CORDOBA'");
+
+    // Debe buscar tanto por campo ciudad como por nombre_entidad
+    expect(clause).toContain("upper(ciudad)='PLANETA RICA'");
+    expect(clause).toContain("upper(ciudad) like '%PLANETA RICA%'");
+    expect(clause).toContain("upper(nombre_entidad) like '%PLANETA RICA%'");
+  });
+
+  it('construye cláusula WHERE compatible con el dataset de procesos SECOP II (p6dx-8zbt)', () => {
+    const clause = buildSoqlWhereClause('Córdoba', 'Planeta Rica', true);
+    
+    // En procesos las columnas son departamento_entidad, ciudad_entidad y entidad
+    expect(clause).toContain("upper(departamento_entidad)='CÓRDOBA'");
+    expect(clause).toContain("upper(ciudad_entidad)='PLANETA RICA'");
+    expect(clause).toContain("upper(entidad) like '%PLANETA RICA%'");
+    expect(clause).not.toContain("upper(departamento)='");
+  });
 });
+

@@ -82,12 +82,20 @@ export default async function handler(req: any, res: any) {
 
     const params = new URLSearchParams();
 
+    const targetResource = String(resourceId).replace(/[^a-z0-9-]/gi, '') || DEFAULT_RESOURCE_ID;
+    const isProcessResource = targetResource === 'p6dx-8zbt';
+
+    const deptCol = isProcessResource ? 'departamento_entidad' : 'departamento';
+    const cityCol = isProcessResource ? 'ciudad_entidad' : 'ciudad';
+    const entityCol = isProcessResource ? 'entidad' : 'nombre_entidad';
+
     // Soporte para cláusula WHERE personalizada o autoconstruida
     if (where) {
       params.append('$where', String(where));
     } else if (query) {
       const cleanQuery = String(query).replace(/'/g, "''");
-      params.append('$where', `objeto_del_contrato like '%25${cleanQuery}%25'`);
+      const queryCol = isProcessResource ? 'descripci_n_del_procedimiento' : 'objeto_del_contrato';
+      params.append('$where', `${queryCol} like '%25${cleanQuery}%25'`);
     } else if (departamento) {
       const rawDept = String(departamento).trim();
       const normDept = rawDept.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
@@ -117,9 +125,9 @@ export default async function handler(req: any, res: any) {
       for (const name of candidateNames) {
         const u = name.toUpperCase().replace(/'/g, "''");
         const uNoAcc = u.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-        deptConds.push(`upper(departamento)='${u}'`);
+        deptConds.push(`upper(${deptCol})='${u}'`);
         if (uNoAcc !== u) {
-          deptConds.push(`upper(departamento)='${uNoAcc}'`);
+          deptConds.push(`upper(${deptCol})='${uNoAcc}'`);
         }
       }
 
@@ -128,20 +136,32 @@ export default async function handler(req: any, res: any) {
       if (ciudad && String(ciudad).trim()) {
         const cityStr = String(ciudad).trim();
         if (/bogot/i.test(cityStr)) {
-          whereClause += ` AND (upper(ciudad)='BOGOTÁ' OR upper(ciudad)='BOGOTA' OR upper(ciudad)='DISTRITO CAPITAL' OR upper(ciudad)='NO DEFINIDO')`;
+          whereClause += ` AND (upper(${cityCol})='BOGOTÁ' OR upper(${cityCol})='BOGOTA' OR upper(${cityCol})='DISTRITO CAPITAL' OR upper(${cityCol})='NO DEFINIDO')`;
         } else {
           const cleanCity = cityStr.toUpperCase().replace(/'/g, "''");
           const cleanCityNoAccents = cleanCity.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-          whereClause += ` AND (upper(ciudad)='${cleanCity}' OR upper(ciudad)='${cleanCityNoAccents}')`;
+          const cityConds = [
+            `upper(${cityCol})='${cleanCity}'`,
+            `upper(${cityCol})='${cleanCityNoAccents}'`,
+            `upper(${cityCol}) like '%${cleanCity}%'`,
+            `upper(${cityCol}) like '%${cleanCityNoAccents}%'`,
+            `upper(${entityCol}) like '%${cleanCity}%'`,
+            `upper(${entityCol}) like '%${cleanCityNoAccents}%'`,
+          ];
+          const uniqueConds = Array.from(new Set(cityConds));
+          whereClause += ` AND (${uniqueConds.join(' OR ')})`;
         }
       }
       params.append('$where', whereClause);
     }
 
-    params.append('$order', 'fecha_de_firma DESC');
+    if (isProcessResource) {
+      params.append('$order', 'fecha_de_publicacion_del DESC');
+    } else {
+      params.append('$order', 'fecha_de_firma DESC');
+    }
     params.append('$limit', String(Math.min(500, Math.max(1, Number(limit) || 100))));
 
-    const targetResource = String(resourceId).replace(/[^a-z0-9-]/gi, '') || DEFAULT_RESOURCE_ID;
     const url = `${BASE_URL}/${targetResource}.json?${params.toString()}`;
 
     const controller = new AbortController();

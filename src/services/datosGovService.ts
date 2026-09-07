@@ -134,22 +134,30 @@ function normalizeModalidad(modalidad: string | undefined): ModalidadType {
   return 'Contratación Directa';
 }
 
-function buildSoqlWhereClause(deptNameOrCode: string, cityName?: string): string {
+export function buildSoqlWhereClause(
+  deptNameOrCode: string,
+  cityName?: string,
+  isProcessDataset = false,
+): string {
+  const deptCol = isProcessDataset ? 'departamento_entidad' : 'departamento';
+  const cityCol = isProcessDataset ? 'ciudad_entidad' : 'ciudad';
+  const entityCol = isProcessDataset ? 'entidad' : 'nombre_entidad';
+
   const resolvedDepts = normalizeSecopDepartment(deptNameOrCode);
   const deptConditions: string[] = [];
 
   for (const d of resolvedDepts) {
     const dUpper = d.toUpperCase().replace(/'/g, "''");
     const dNoAccents = stripAccents(dUpper);
-    deptConditions.push(`upper(departamento)='${dUpper}'`);
+    deptConditions.push(`upper(${deptCol})='${dUpper}'`);
     if (dNoAccents !== dUpper) {
-      deptConditions.push(`upper(departamento)='${dNoAccents}'`);
+      deptConditions.push(`upper(${deptCol})='${dNoAccents}'`);
     }
   }
 
   if (deptConditions.length === 0) {
     const dUpper = deptNameOrCode.toUpperCase().replace(/'/g, "''");
-    deptConditions.push(`upper(departamento)='${dUpper}'`);
+    deptConditions.push(`upper(${deptCol})='${dUpper}'`);
   }
 
   let clause = `(${deptConditions.join(' OR ')})`;
@@ -157,11 +165,20 @@ function buildSoqlWhereClause(deptNameOrCode: string, cityName?: string): string
   if (cityName && cityName.trim()) {
     const cleanCity = cityName.trim();
     if (cleanCity.toLowerCase().includes('bogot')) {
-      clause += ` AND (upper(ciudad)='BOGOTÁ' OR upper(ciudad)='BOGOTA' OR upper(ciudad)='DISTRITO CAPITAL' OR upper(ciudad)='NO DEFINIDO')`;
+      clause += ` AND (upper(${cityCol})='BOGOTÁ' OR upper(${cityCol})='BOGOTA' OR upper(${cityCol})='DISTRITO CAPITAL' OR upper(${cityCol})='NO DEFINIDO')`;
     } else {
       const cityUpper = cleanCity.toUpperCase().replace(/'/g, "''");
       const cityNoAccents = stripAccents(cityUpper);
-      clause += ` AND (upper(ciudad)='${cityUpper}' OR upper(ciudad)='${cityNoAccents}')`;
+      const cityConds = [
+        `upper(${cityCol})='${cityUpper}'`,
+        `upper(${cityCol})='${cityNoAccents}'`,
+        `upper(${cityCol}) like '%${cityUpper}%'`,
+        `upper(${cityCol}) like '%${cityNoAccents}%'`,
+        `upper(${entityCol}) like '%${cityUpper}%'`,
+        `upper(${entityCol}) like '%${cityNoAccents}%'`,
+      ];
+      const uniqueCityConds = Array.from(new Set(cityConds));
+      clause += ` AND (${uniqueCityConds.join(' OR ')})`;
     }
   }
 
@@ -245,12 +262,17 @@ export async function fetchContractsByMunicipality(
 
   try {
     const contracts = await fetchWithCache<RealContract[]>(directUrl, cacheKey);
-    return Array.isArray(contracts) ? contracts : [];
+    if (Array.isArray(contracts) && contracts.length > 0) {
+      return contracts;
+    }
   } catch (error) {
     console.warn('Fallo consulta con ciudad específica, intentando por departamento:', error);
-    // Fallback terciario: si la ciudad no arroja por disparidad de nombre municipal en SECOP II, consultar por departamento
-    return await fetchContractsByDepartment(departmentCode, limit);
   }
+
+  // 3. Fallback terciario: si el municipio no arroja registros específicos bajo SECOP II,
+  // consultar por departamento para garantizar visualización y no dejar la interfaz en blanco
+  console.info(`No se encontraron contratos específicos para el municipio ${cityName} (${municipalityCode}), usando fallback del departamento ${deptName}`);
+  return await fetchContractsByDepartment(departmentCode, limit);
 }
 
 export async function fetchContractProcessesByMunicipality(
@@ -266,7 +288,7 @@ export async function fetchContractProcessesByMunicipality(
   const deptName = dept.name;
   const cityName = mun?.name || '';
   const cacheKey = `processes_${municipalityCode}_${limit}`;
-  const whereClause = buildSoqlWhereClause(deptName, cityName);
+  const whereClause = buildSoqlWhereClause(deptName, cityName, true);
 
   // Intentar proxy primero
   const proxyUrl = `/api/secop?where=${encodeURIComponent(whereClause)}&limit=${limit}&resourceId=${SECOP_PROCESSES_ID}`;
@@ -279,14 +301,15 @@ export async function fetchContractProcessesByMunicipality(
 
   const params = new URLSearchParams({
     $where: whereClause,
-    $order: 'fecha_de_firma DESC',
+    $order: 'fecha_de_publicacion_del DESC',
     $limit: String(limit),
   });
 
   const url = `${SOCRATA_BASE_URL}/${SECOP_PROCESSES_ID}.json?${params.toString()}`;
 
   try {
-    return await fetchWithCache<RealContract[]>(url, cacheKey);
+    const data = await fetchWithCache<RealContract[]>(url, cacheKey);
+    return Array.isArray(data) ? data : [];
   } catch (error) {
     console.error('Error fetching processes:', error);
     return [];
@@ -437,9 +460,18 @@ export function mapRealContractToContract(rc: RealContract): Contract {
       ? rc.nombre_supervisor
       : undefined;
 
+  const rawName = (rc.objeto_del_contrato || '').trim();
+  const rawDesc = (rc.descripcion_del_proceso || '').trim();
+  const cleanName =
+    rawName && rawName.toLowerCase() !== 'no definido'
+      ? rawName
+      : (rawDesc && rawDesc.toLowerCase() !== 'no definido'
+        ? rawDesc
+        : (rawName || rawDesc || 'Sin descripción'));
+
   return {
     id: rc.id_contrato || rc.referencia_del_contrato || 'N/A',
-    name: rc.objeto_del_contrato || rc.descripcion_del_proceso || 'Sin descripción',
+    name: cleanName,
     municipalityCode: '',
     contractor: rc.proveedor_adjudicado || 'No adjudicado',
     value: totalValue > 0 ? totalValue : baseValue,
