@@ -204,6 +204,25 @@ const App: React.FC = () => {
     }
   }, [selectedDepartment, selectedMunicipality, selectedEntity, realContracts, modals]);
 
+  const handleConsultar = useCallback(() => {
+    if (!selectedDepartment && !selectedMunicipality) return;
+    loadLocationData(selectedDepartment, selectedMunicipality, selectedEntity);
+    setTimeout(() => {
+      const section = document.getElementById('contracts-section');
+      if (section) {
+        section.scrollIntoView({ behavior: 'smooth' });
+      }
+    }, 150);
+  }, [selectedDepartment, selectedMunicipality, selectedEntity, loadLocationData]);
+
+  // Al cargar contratos, expandir automáticamente las categorías para visualización inmediata
+  useEffect(() => {
+    if (contracts.length > 0) {
+      const allCategories = new Set(contracts.map((c) => c.category || 'General'));
+      setExpandedCategories(allCategories);
+    }
+  }, [contracts]);
+
   const toggleCategory = (category: string) => {
     setExpandedCategories((prev) => {
       const newSet = new Set(prev);
@@ -329,6 +348,8 @@ const App: React.FC = () => {
             onEntityChange={handleEntityChange}
             onOpenDecentralizedModal={modals.openDecentralized}
             isLoadingMunicipalities={isLoadingMunicipalities}
+            onConsultar={handleConsultar}
+            isLoadingContracts={isLoading}
           />
 
           {(selectedDepartment || selectedMunicipality) && (
@@ -490,19 +511,64 @@ const App: React.FC = () => {
 
           <DetectionPotential />
 
+          {(selectedDepartment || selectedMunicipality) && isLoading && (
+            <div id="contracts-section" className="bg-white p-12 rounded-xl border border-slate-200 text-center shadow-sm">
+              <div className="inline-block animate-spin rounded-full h-10 w-10 border-4 border-blue-600 border-t-transparent mb-3" />
+              <h3 className="text-base font-bold text-slate-800">
+                Consultando contratos oficiales en SECOP II...
+              </h3>
+              <p className="text-xs text-slate-500 mt-1">
+                Extrayendo contratistas, valores y dictamen de semáforo para {currentLocationLabel || 'la ubicación'}
+              </p>
+            </div>
+          )}
+
           {(selectedDepartment || selectedMunicipality) && !isLoading && (
-            <div className="space-y-6">
+            <div id="contracts-section" className="space-y-6 scroll-mt-6">
               {contracts.length > 0 && (
                 <div>
-                  <div className="flex items-center justify-between mb-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
                     <div>
-                      <h2 className="text-xl font-bold text-slate-800">Contratos por Categoría</h2>
-                      <p className="text-sm text-slate-600 -mt-1">
-                        {contracts.length} contratos analizados con reglas de semáforo {currentLocationLabel ? `(${currentLocationLabel})` : ''}
+                      <div className="flex items-center gap-2">
+                        <h2 className="text-xl font-bold text-slate-800">
+                          {selectedEntityDef
+                            ? `Contratos Oficiales: ${selectedEntityDef.name}`
+                            : 'Contratos por Categoría'}
+                        </h2>
+                        {selectedEntityDef && (
+                          <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-blue-100 text-blue-800 border border-blue-200">
+                            {selectedEntityDef.icon} {selectedEntityDef.shortName}
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-sm text-slate-600 mt-0.5">
+                        {contracts.length} contratos auditados con Semáforo Cívico en {currentLocationLabel ? `(${currentLocationLabel})` : ''}
                       </p>
                     </div>
+
+                    {selectedEntityDef && (
+                      <button
+                        onClick={modals.openDecentralized}
+                        className="self-start sm:self-auto px-3.5 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-sm"
+                      >
+                        <span>🏢</span>
+                        <span>Auditoría Especializada {selectedEntityDef.shortName}</span>
+                      </button>
+                    )}
                   </div>
-                  <div className="space-y-2">
+
+                  {selectedEntityDef && selectedMunicipalityName && (
+                    <div className="p-3 bg-blue-50/80 border border-blue-200 rounded-xl text-xs text-blue-900 flex items-center gap-2 mb-4">
+                      <span className="text-lg">🏛️</span>
+                      <div>
+                        <span className="font-bold">Cobertura Territorial y Regional:</span> Auditando contratos oficiales de la entidad{' '}
+                        <strong>{selectedEntityDef.name}</strong> con impacto y cobertura en{' '}
+                        <strong>{selectedMunicipalityName}</strong> ({selectedDepartmentName}).
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="space-y-3">
                     {Object.keys(groupedContracts)
                       .sort()
                       .map((category) => {
@@ -616,12 +682,15 @@ const App: React.FC = () => {
         </p>
       </footer>
 
-      {/* Modales de Control Social */}
+      {/* MODALES DEL SISTEMA */}
       {modals.alertProject && (
         <CreateAlertModal
           project={modals.alertProject}
           onClose={modals.closeAlert}
-          onSuccess={() => addToast('success', '¡Alerta ciudadana registrada y persistida exitosamente!')}
+          onSuccess={() => {
+            modals.closeAlert();
+            addToast('success', '¡Alerta ciudadana registrada y persistida exitosamente!');
+          }}
         />
       )}
 
@@ -635,43 +704,7 @@ const App: React.FC = () => {
         />
       )}
 
-      {modals.detailsContract && (
-        <ContractDetailsModal
-          contract={modals.detailsContract}
-          onClose={modals.closeDetails}
-          onAlertClick={(c) => {
-            modals.closeDetails();
-            modals.openAlert(c);
-          }}
-          onComparePricesClick={modals.openPriceComparison}
-          onAIClick={(c) => {
-            modals.closeDetails();
-            modals.openAI(c);
-          }}
-          onForensicAuditClick={(c) => {
-            modals.openForensicAudit(c);
-          }}
-        />
-      )}
-
-      <AIConsultantModal
-        isOpen={Boolean(modals.aiContract)}
-        onClose={modals.closeAI}
-        contract={modals.aiContract}
-      />
-
       <AlertsHistoryModal isOpen={modals.alertsOpen} onClose={modals.closeAlerts} />
-
-      {modals.priceContract && (
-        <PriceComparisonModal
-          contract={modals.priceContract}
-          onClose={modals.closePriceComparison}
-          onAlertClick={(c) => {
-            modals.closePriceComparison();
-            modals.openAlert(c);
-          }}
-        />
-      )}
 
       <SearchBar
         isOpen={modals.searchOpen}
@@ -732,13 +765,6 @@ const App: React.FC = () => {
         onForensicAudit={(c) => modals.openForensicAudit(c)}
       />
 
-      {/* Modal de Dictamen Pericial Forense FAEPP */}
-      <ForensicAuditModal
-        isOpen={modals.forensicAuditOpen}
-        onClose={modals.closeForensicAudit}
-        contract={modals.forensicAuditContract}
-      />
-
       {/* Modal de Auditoría Especializada a Entidades Descentralizadas */}
       <DecentralizedEntitiesModal
         isOpen={modals.decentralizedOpen}
@@ -750,6 +776,50 @@ const App: React.FC = () => {
         initialEntityId={selectedEntity as DecentralizedEntityId}
         onViewDetailsClick={(c) => modals.openDetails(c)}
         onAlertClick={(c) => modals.openAlert(c)}
+      />
+
+      {/* MODALES DETALLE DE MAYOR JERARQUÍA (SIEMPRE SOBRE LOS DEMÁS) */}
+      {modals.detailsContract && (
+        <ContractDetailsModal
+          contract={modals.detailsContract}
+          onClose={modals.closeDetails}
+          onAlertClick={(c) => {
+            modals.closeDetails();
+            modals.openAlert(c);
+          }}
+          onComparePricesClick={modals.openPriceComparison}
+          onAIClick={(c) => {
+            modals.closeDetails();
+            modals.openAI(c);
+          }}
+          onForensicAuditClick={(c) => {
+            modals.openForensicAudit(c);
+          }}
+        />
+      )}
+
+      {/* Modal de Dictamen Pericial Forense FAEPP */}
+      <ForensicAuditModal
+        isOpen={modals.forensicAuditOpen}
+        onClose={modals.closeForensicAudit}
+        contract={modals.forensicAuditContract}
+      />
+
+      {modals.priceContract && (
+        <PriceComparisonModal
+          contract={modals.priceContract}
+          onClose={modals.closePriceComparison}
+          onAlertClick={(c) => {
+            modals.closePriceComparison();
+            modals.openAlert(c);
+          }}
+        />
+      )}
+
+      <AIConsultantModal
+        isOpen={Boolean(modals.aiContract)}
+        onClose={modals.closeAI}
+        contract={modals.aiContract}
       />
 
       {/* Contenedor flotante de notificaciones Toast */}

@@ -328,7 +328,13 @@ const DecentralizedEntitiesModal: React.FC<Props> = ({
                         </span>
                       </div>
 
-                      <h4 className="font-semibold text-slate-800 text-sm line-clamp-2" title={c.name}>
+                      <h4
+                        className="font-semibold text-slate-800 text-sm line-clamp-2 cursor-pointer hover:text-indigo-600 transition-colors"
+                        title={c.name}
+                        onClick={() => onViewDetailsClick(c)}
+                        role="button"
+                        tabIndex={0}
+                      >
                         {c.name}
                       </h4>
 
@@ -358,6 +364,7 @@ const DecentralizedEntitiesModal: React.FC<Props> = ({
                       <div className="flex items-center gap-1.5">
                         {onAlertClick && (
                           <button
+                            type="button"
                             onClick={() => onAlertClick(c)}
                             className="px-2.5 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-lg text-xs font-semibold transition-colors"
                             title="Reportar anomalía ciudadana"
@@ -366,8 +373,9 @@ const DecentralizedEntitiesModal: React.FC<Props> = ({
                           </button>
                         )}
                         <button
+                          type="button"
                           onClick={() => onViewDetailsClick(c)}
-                          className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-semibold shadow-sm transition-colors"
+                          className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-semibold shadow-sm transition-colors cursor-pointer"
                         >
                           Ver Expediente
                         </button>

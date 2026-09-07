@@ -50,8 +50,8 @@ const ContractDetailsModal: React.FC<Props> = ({
   const hasAvispaRisk = contract.moneyAdditionPercentage > 50 || contract.timeAdditionPercentage > 50;
 
   return (
-    <div className="modal-backdrop" onClick={onClose} role="dialog" aria-modal="true" aria-labelledby="detail-title">
-      <div className="modal-content max-w-3xl overflow-hidden" onClick={(e) => e.stopPropagation()}>
+    <div className="modal-backdrop !z-[90] animate-fade-in" onClick={onClose} role="dialog" aria-modal="true" aria-labelledby="detail-title">
+      <div className="modal-content max-w-3xl overflow-hidden relative shadow-2xl border border-slate-300" onClick={(e) => e.stopPropagation()}>
         {/* Cabecera */}
         <div className="flex items-center justify-between p-4 border-b border-slate-200 bg-white">
           <div className="flex items-center gap-3">
