@@ -125,6 +125,19 @@ describe('Auditoría e Integración de Entidades Descentralizadas', () => {
       expect(filtered[0].id_contrato).toBe('2');
     });
 
+    it('identifica contratos de salud o PIC adjudicados a hospitales por alcaldías municipales', () => {
+      const prContract: RealContract = {
+        id_contrato: 'PR-HOSP-1',
+        nombre_entidad: 'MUNICIPIO DE PLANETA RICA CORDOBA',
+        proveedor_adjudicado: 'E.S.E. HOSPITAL SAN NICOLAS',
+        objeto_del_contrato: 'EJECUTAR LAS ACCIONES DEL PLAN DE INTERVENCIONES COLECTIVAS PIC',
+        valor_del_contrato: '1229463846',
+      };
+      const filtered = filterContractsByDecentralizedEntity([...mockContracts, prContract], 'ese_hospital');
+      expect(filtered.length).toBe(2);
+      expect(filtered.some((c) => c.id_contrato === 'PR-HOSP-1')).toBe(true);
+    });
+
     it('filtra contratos del ICA', () => {
       const filtered = filterContractsByDecentralizedEntity(mockContracts, 'ica');
       expect(filtered.length).toBe(1);

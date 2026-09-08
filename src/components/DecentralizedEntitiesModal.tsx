@@ -287,18 +287,33 @@ const DecentralizedEntitiesModal: React.FC<Props> = ({
                 No se encontraron contratos registrados para {currentEntityDef.shortName}
               </h4>
               <p className="text-xs text-slate-500 max-w-md mx-auto mt-1">
-                En {currentMunName ? `${currentMunName} (${currentDeptName})` : currentDeptName}, no se registran contratos en SECOP II bajo los criterios de búsqueda de esta entidad.
+                En {currentMunName ? `${currentMunName} (${currentDeptName})` : currentDeptName}, no se registran contratos en SECOP II bajo los criterios específicos de esta entidad.
               </p>
+              {selectedMun && (
+                <div className="mt-4">
+                  <p className="text-[11px] text-slate-400 mb-2">
+                    La búsqueda está aislada estrictamente a {currentMunName} para evitar confusiones con otros municipios.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedMun('')}
+                    className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-semibold text-xs rounded-lg border border-indigo-200 transition-colors"
+                  >
+                    <span>🏛️</span>
+                    <span>Ver contratos de {currentEntityDef.shortName} en todo el departamento ({currentDeptName})</span>
+                  </button>
+                </div>
+              )}
             </div>
           ) : (
             <div className="space-y-3">
               {selectedMun && (
-                <div className="p-3 bg-indigo-50/70 border border-indigo-200 rounded-xl text-xs text-indigo-900 flex items-center gap-2.5 mb-3">
-                  <span className="text-lg shrink-0">🏛️</span>
+                <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-900 flex items-center gap-2.5 mb-3">
+                  <span className="text-lg shrink-0">🏥</span>
                   <div>
-                    <span className="font-bold">Cobertura Territorial y Regional:</span>{' '}
-                    Auditando contratos oficiales de <strong>{currentEntityDef.name}</strong> con operación, impacto y cobertura en{' '}
-                    <strong>{currentMunName}</strong> ({currentDeptName}).
+                    <span className="font-bold">Auditoría Exclusiva Municipal:</span>{' '}
+                    Mostrando únicamente contratos correspondientes al hospital o entidad de{' '}
+                    <strong>{currentMunName}</strong> ({currentDeptName}). Los contratos de otros municipios han sido excluidos.
                   </div>
                 </div>
               )}

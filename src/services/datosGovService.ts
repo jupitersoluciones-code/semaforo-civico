@@ -342,7 +342,15 @@ export function filterContractsByDecentralizedEntity(
     const matchEntity = def.patterns.some((pattern) => matchesEntityPattern(entityName, pattern));
     if (matchEntity) return true;
 
-    // 2. Para entidades nacionales con ejecución territorial (ANT, AUNAP), verificar objeto
+    // 2. Coincidencia por contratista adjudicado (ej: Municipio adjudica a su Hospital/E.S.E.)
+    const contractor = c.proveedor_adjudicado || '';
+    if (entityId === 'ese_hospital') {
+      const matchProvider = def.patterns.some((pattern) => matchesEntityPattern(contractor, pattern));
+      if (matchProvider) return true;
+      if (matchesEntityPattern(objectDesc, 'PLAN DE INTERVENCIONES COLECTIVAS')) return true;
+    }
+
+    // 3. Para entidades nacionales con ejecución territorial (ANT, AUNAP), verificar objeto
     if (def.scope === 'national_territorial') {
       const matchObject = def.patterns.some((pattern) => matchesEntityPattern(objectDesc, pattern));
       if (matchObject) return true;
@@ -422,29 +430,51 @@ export async function fetchContractsByDecentralizedEntity(
     .join(' OR ');
   const entityMatch = `(${entityConds})`;
 
-  // Nivel 1: Si hay municipio especificado, intentar buscar contratos específicos para ese municipio
+  // Nivel 1: Si hay municipio especificado, aislar ESTRICTAMENTE los contratos de ese municipio.
+  // Bajo ninguna circunstancia mezclar hospitales o contratos de otros municipios.
   if (cityName && cityName.trim()) {
     const cUpper = cityName.trim().toUpperCase().replace(/'/g, "''");
     const cNoAcc = stripAccents(cUpper);
 
+    const cityMatch =
+      cNoAcc !== cUpper
+        ? `(upper(ciudad)='${cUpper}' OR upper(ciudad)='${cNoAcc}' OR upper(nombre_entidad) like '%${cUpper}%' OR upper(nombre_entidad) like '%${cNoAcc}%')`
+        : `(upper(ciudad)='${cUpper}' OR upper(nombre_entidad) like '%${cUpper}%')`;
+
     let whereMun = '';
-    if (entityId === 'ant' || entityId === 'aunap') {
-      whereMun = `${entityMatch} AND (upper(objeto_del_contrato) like '%${cUpper}%' OR upper(objeto_del_contrato) like '%${cNoAcc}%' OR upper(ciudad)='${cUpper}' OR upper(ciudad)='${cNoAcc}')`;
-    } else if (entityId === 'ese_hospital') {
-      whereMun = `${deptCond} AND ${entityMatch} AND (upper(ciudad)='${cUpper}' OR upper(ciudad)='${cNoAcc}' OR upper(nombre_entidad) like '%${cUpper}%' OR upper(nombre_entidad) like '%${cNoAcc}%')`;
+    if (entityId === 'ese_hospital') {
+      // 1. Hospital / ESE con sede o nombre en este municipio
+      // 2. O Alcaldía municipal contratando a su Hospital/ESE o ejecutando Plan de Intervenciones Colectivas (PIC)
+      whereMun = `${deptCond} AND (` +
+        `((upper(nombre_entidad) like '%HOSPITAL%' OR upper(nombre_entidad) like '%EMPRESA SOCIAL DEL ESTADO%' OR upper(nombre_entidad) like '%E.S.E%' OR upper(nombre_entidad) like '%CAMU%') AND ${cityMatch})` +
+        ` OR ` +
+        `(${cityMatch} AND (upper(proveedor_adjudicado) like '%HOSPITAL%' OR upper(proveedor_adjudicado) like '%E.S.E%' OR upper(proveedor_adjudicado) like '%CAMU%' OR upper(objeto_del_contrato) like '%HOSPITAL%' OR upper(objeto_del_contrato) like '%PLAN DE INTERVENCIONES COLECTIVAS%'))` +
+      `)`;
+    } else if (entityId === 'inder') {
+      // Instituto deportivo local o Alcaldía contratando recreación/deporte en este municipio
+      whereMun = `${deptCond} AND (` +
+        `((upper(nombre_entidad) like '%INDER%' OR upper(nombre_entidad) like '%IMDER%' OR upper(nombre_entidad) like '%DEPORTE%') AND ${cityMatch})` +
+        ` OR ` +
+        `(${cityMatch} AND (upper(objeto_del_contrato) like '%DEPORTE%' OR upper(objeto_del_contrato) like '%RECREACION%' OR upper(objeto_del_contrato) like '%ESCENARIO DEPORTIVO%'))` +
+      `)`;
+    } else if (entityId === 'ant' || entityId === 'aunap') {
+      // Entidades nacionales con ejecución directa en este municipio
+      whereMun = `${entityMatch} AND (upper(ciudad)='${cUpper}' OR upper(ciudad)='${cNoAcc}' OR upper(objeto_del_contrato) like '%${cUpper}%' OR upper(objeto_del_contrato) like '%${cNoAcc}%')`;
     } else {
-      whereMun = `${deptCond} AND ${entityMatch} AND (upper(ciudad)='${cUpper}' OR upper(ciudad)='${cNoAcc}' OR upper(nombre_entidad) like '%${cUpper}%' OR upper(nombre_entidad) like '%${cNoAcc}%' OR upper(objeto_del_contrato) like '%${cUpper}%')`;
+      // SENA, ICA: operaciones o centros directamente vinculados a este municipio
+      whereMun = `${deptCond} AND ${entityMatch} AND (upper(ciudad)='${cUpper}' OR upper(ciudad)='${cNoAcc}' OR upper(objeto_del_contrato) like '%${cUpper}%' OR upper(objeto_del_contrato) like '%${cNoAcc}%')`;
     }
 
-    const cacheKeyMun = `decent_v4_mun_${entityId}_${resolvedDeptCode}_${municipalityCode}_${limit}`;
+    const cacheKeyMun = `decent_v5_strict_mun_${entityId}_${resolvedDeptCode}_${municipalityCode}_${limit}`;
     const municipalContracts = await executeSecopQuery(whereMun, cacheKeyMun, limit);
-    if (municipalContracts.length > 0) {
-      return municipalContracts;
-    }
+
+    // Si el municipio tiene contratos directos, devolverlos.
+    // Si no tiene contratos directos en SECOP II, devolver array vacío []
+    // NUNCA desbordar a hospitales o contratos de otros municipios.
+    return municipalContracts;
   }
 
-  // Nivel 2: Cobertura Departamental / Regional de la entidad
-  // (Crucial para SENA, ICA, INDER, ANT, AUNAP y redes hospitalarias cuyas sedes operativas son regionales)
+  // Nivel 2: Cobertura Departamental (únicamente cuando NO se especifica municipio, ej. "🏛️ Todo el departamento")
   let whereDept = '';
   if (entityId === 'ant' || entityId === 'aunap') {
     whereDept = `${entityMatch} AND (upper(objeto_del_contrato) like '%${dUpper}%' OR upper(objeto_del_contrato) like '%${dNoAcc}%' OR ${deptCond})`;
@@ -452,15 +482,15 @@ export async function fetchContractsByDecentralizedEntity(
     whereDept = `${deptCond} AND ${entityMatch}`;
   }
 
-  const cacheKeyDept = `decent_v4_dept_${entityId}_${resolvedDeptCode}_${limit}`;
+  const cacheKeyDept = `decent_v5_dept_${entityId}_${resolvedDeptCode}_${limit}`;
   const deptContracts = await executeSecopQuery(whereDept, cacheKeyDept, limit);
   if (deptContracts.length > 0) {
     return deptContracts;
   }
 
-  // Nivel 3: Fallback Nacional para entidades con registro centralizado (AUNAP, ANT)
+  // Nivel 3: Fallback Nacional para entidades con registro centralizado (AUNAP, ANT) a nivel país
   if (entityId === 'aunap' || entityId === 'ant') {
-    const cacheKeyNat = `decent_v4_nat_${entityId}_${limit}`;
+    const cacheKeyNat = `decent_v5_nat_${entityId}_${limit}`;
     const natContracts = await executeSecopQuery(entityMatch, cacheKeyNat, limit);
     return natContracts;
   }
