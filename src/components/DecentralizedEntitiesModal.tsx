@@ -59,11 +59,12 @@ const DecentralizedEntitiesModal: React.FC<Props> = ({
 
   // Cargar contratos de la entidad seleccionada en la ubicación
   useEffect(() => {
-    if (!isOpen || !selectedDept) return;
+    if (!isOpen || !selectedDept) return;  // No cargar si no hay departamento
 
     let isMounted = true;
     setIsLoading(true);
     setError(null);
+    setContracts([]);
 
     fetchContractsByDecentralizedEntity(selectedEntity, selectedDept, selectedMun, 150)
       .then((data) => {
@@ -350,7 +351,30 @@ const DecentralizedEntitiesModal: React.FC<Props> = ({
 
         {/* Listado de Contratos */}
         <div className="flex-1 overflow-y-auto p-4 bg-slate-50/50">
-          {contractorSearchActive && isContractorLoading ? (
+          {/* Aviso cuando no hay departamento seleccionado */}
+          {!selectedDept ? (
+            <div className="text-center py-20 px-4">
+              <BuildingOfficeIcon className="w-14 h-14 mx-auto text-slate-300 mb-4" />
+              <h4 className="text-base font-bold text-slate-700 mb-1">
+                Selecciona un departamento para iniciar la auditoría
+              </h4>
+              <p className="text-xs text-slate-500 max-w-sm mx-auto">
+                Usa el selector <strong>Departamento</strong> de arriba para elegir el territorio que deseas auditar. Los contratos de {currentEntityDef.shortName} se cargarán automáticamente.
+              </p>
+              <div className="mt-4 flex flex-wrap gap-2 justify-center">
+                {departments.slice(0, 8).map((d) => (
+                  <button
+                    key={d.code}
+                    type="button"
+                    onClick={() => setSelectedDept(d.code)}
+                    className="text-xs px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-slate-700 hover:bg-indigo-50 hover:border-indigo-300 hover:text-indigo-700 font-medium transition-all"
+                  >
+                    {d.name}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : contractorSearchActive && isContractorLoading ? (
             <div className="text-center py-16">
               <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-indigo-600 border-t-transparent mb-3" />
               <p className="text-sm font-semibold text-slate-700">
