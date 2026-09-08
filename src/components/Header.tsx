@@ -1,5 +1,5 @@
 import React from 'react';
-import { BoltIcon } from './Icons';
+import { BoltIcon, SearchIcon } from './Icons';
 
 interface Props {
   onOpenContractorsSearch?: () => void;
@@ -8,17 +8,17 @@ interface Props {
 const Header: React.FC<Props> = ({ onOpenContractorsSearch }) => {
   return (
     <header className="bg-white border-b border-slate-200 sticky top-0 z-40" role="banner">
-      <div className="container mx-auto px-4 md:px-6 py-4">
+      <div className="container mx-auto px-4 md:px-6 py-3.5">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="bg-blue-600 p-2 rounded-lg">
-              <BoltIcon className="w-6 h-6 text-white" />
+            <div className="bg-blue-600 p-2 rounded-lg shadow-sm">
+              <BoltIcon className="w-5 h-5 text-white" />
             </div>
             <div>
-              <h1 className="text-xl md:text-2xl font-bold text-slate-800">
+              <h1 className="text-lg md:text-xl font-bold text-slate-900 tracking-tight">
                 Semáforo Cívico
               </h1>
-              <p className="text-xs text-slate-500 hidden sm:block">
+              <p className="text-xs text-slate-500 hidden sm:block font-medium">
                 Control social a la contratación pública
               </p>
             </div>
@@ -27,20 +27,20 @@ const Header: React.FC<Props> = ({ onOpenContractorsSearch }) => {
             {onOpenContractorsSearch && (
               <button
                 onClick={onOpenContractorsSearch}
-                className="text-xs font-semibold px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-lg transition-colors flex items-center gap-1.5"
+                className="btn-secondary text-xs py-2 px-3.5 flex items-center gap-2"
                 title="Búsqueda nacional de entidades públicas compradoras y contratistas"
               >
-                <span>🔍</span>
-                <span>Buscar Contratantes y Licitantes</span>
+                <SearchIcon className="w-4 h-4" />
+                <span className="hidden sm:inline">Buscar Contratantes</span>
               </button>
             )}
             <a
               href="https://www.datos.gov.co"
               target="_blank"
               rel="noopener noreferrer"
-              className="text-xs text-blue-600 hover:text-blue-800 hidden md:block"
+              className="text-xs text-slate-400 hover:text-blue-600 transition-colors hidden md:block font-medium"
             >
-              Fuente: Datos Abiertos Colombia
+              Datos Abiertos Colombia
             </a>
           </div>
         </div>
@@ -50,3 +50,5 @@ const Header: React.FC<Props> = ({ onOpenContractorsSearch }) => {
 };
 
 export default React.memo(Header);
+
+

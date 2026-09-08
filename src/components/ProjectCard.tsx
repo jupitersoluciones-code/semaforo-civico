@@ -3,7 +3,7 @@ import type { Project, Contract } from '../utils/types';
 import { SemaphoreStatus } from '../utils/types';
 import SemaphoreIndicator from './SemaphoreIndicator';
 import { formatCurrency } from '../utils/formatters';
-import { ExclamationIcon } from './Icons';
+import { ExclamationIcon, BuildingOfficeIcon } from './Icons';
 
 interface Props {
   project: Project;
@@ -71,7 +71,7 @@ const ProjectCard: React.FC<Props> = ({ project, onAlertClick, onViewDetailsClic
         )}
         {isContract && contract && contract.departmentAgency && (
           <div className="flex items-center gap-1 text-[11px] font-medium text-blue-700 bg-blue-50/80 px-2 py-1 rounded border border-blue-100 truncate">
-            <span className="shrink-0">🏛️</span>
+            <BuildingOfficeIcon className="w-3 h-3 shrink-0" />
             <span className="truncate">{contract.departmentAgency}</span>
           </div>
         )}

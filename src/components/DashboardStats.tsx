@@ -1,6 +1,7 @@
 import React from 'react';
 import type { ProcurementStats } from '../utils/types';
 import { formatCurrency } from '../utils/formatters';
+import { WarningIcon } from './Icons';
 
 interface Props {
   stats: ProcurementStats | null;
@@ -100,8 +101,9 @@ const DashboardStats: React.FC<Props> = ({ stats, isLoading }) => {
             </div>
           </div>
           {directPercentage > 40 && (
-            <p className="text-xs text-red-600 mt-2 font-medium">
-              ⚠️ Porcentaje alto de contratación directa ({directPercentage.toFixed(1)}%). Se recomienda revisión.
+            <p className="text-xs text-red-600 mt-2 font-medium flex items-center gap-1">
+              <WarningIcon className="w-3.5 h-3.5" />
+              Porcentaje alto de contratación directa ({directPercentage.toFixed(1)}%). Se recomienda revisión.
             </p>
           )}
         </div>
