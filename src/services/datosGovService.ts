@@ -365,8 +365,11 @@ async function executeSecopQuery(
   cacheKey: string,
   limit: number,
 ): Promise<RealContract[]> {
+  const SELECT_FIELDS =
+    'id_contrato,nombre_entidad,departamento,ciudad,objeto_del_contrato,proveedor_adjudicado,documento_proveedor,valor_del_contrato,fecha_de_firma,estado_del_proceso,tipo_de_contrato,modalidad_de_contratacion,urlproceso';
+
   // 1. Intento primario: proxy
-  const proxyUrl = `/api/secop?where=${encodeURIComponent(whereClause)}&limit=${limit}&resourceId=${SECOP_CONTRACTS_ID}`;
+  const proxyUrl = `/api/secop?where=${encodeURIComponent(whereClause)}&limit=${limit}&resourceId=${SECOP_CONTRACTS_ID}&select=${encodeURIComponent(SELECT_FIELDS)}`;
   try {
     const contracts = await fetchWithCache<RealContract[]>(proxyUrl, cacheKey);
     if (Array.isArray(contracts) && contracts.length > 0) {
@@ -379,6 +382,7 @@ async function executeSecopQuery(
   // 2. Intento secundario: consulta directa a Socrata
   const params = new URLSearchParams({
     $where: whereClause,
+    $select: SELECT_FIELDS,
     $order: 'fecha_de_firma DESC',
     $limit: String(limit),
   });
@@ -576,11 +580,13 @@ export async function fetchContractsByContractor(
   limit = 100,
 ): Promise<RealContract[]> {
   const clean = contractorName.trim().replace(/'/g, "''").toUpperCase();
-  const whereClause = `upper(proveedor_adjudicado) like '%25${clean}%25'`;
-  const cacheKey = `contractor_${clean}_${limit}`;
+  const whereClause = `upper(proveedor_adjudicado) like '%${clean}%'`;
+  const cacheKey = `contractor_v3_${clean}_${limit}`;
+  const SELECT_FIELDS =
+    'id_contrato,nombre_entidad,departamento,ciudad,objeto_del_contrato,proveedor_adjudicado,documento_proveedor,valor_del_contrato,fecha_de_firma,estado_del_proceso,tipo_de_contrato,modalidad_de_contratacion,urlproceso';
 
   // 1. Proxy
-  const proxyUrl = `/api/secop?where=${encodeURIComponent(whereClause)}&limit=${limit}&resourceId=${SECOP_CONTRACTS_ID}`;
+  const proxyUrl = `/api/secop?where=${encodeURIComponent(whereClause)}&limit=${limit}&resourceId=${SECOP_CONTRACTS_ID}&select=${encodeURIComponent(SELECT_FIELDS)}`;
   try {
     const contracts = await fetchWithCache<RealContract[]>(proxyUrl, cacheKey);
     if (Array.isArray(contracts) && contracts.length > 0) return contracts;
@@ -591,6 +597,7 @@ export async function fetchContractsByContractor(
   // 2. Directo Socrata
   const params = new URLSearchParams({
     $where: whereClause,
+    $select: SELECT_FIELDS,
     $order: 'fecha_de_firma DESC',
     $limit: String(limit),
   });
@@ -610,11 +617,13 @@ export async function fetchContractsByEntityName(
   limit = 100,
 ): Promise<RealContract[]> {
   const clean = entityName.trim().replace(/'/g, "''").toUpperCase();
-  const whereClause = `upper(nombre_entidad) like '%25${clean}%25'`;
-  const cacheKey = `entity_${clean}_${limit}`;
+  const whereClause = `upper(nombre_entidad) like '%${clean}%'`;
+  const cacheKey = `entity_v3_${clean}_${limit}`;
+  const SELECT_FIELDS =
+    'id_contrato,nombre_entidad,departamento,ciudad,objeto_del_contrato,proveedor_adjudicado,documento_proveedor,valor_del_contrato,fecha_de_firma,estado_del_proceso,tipo_de_contrato,modalidad_de_contratacion,urlproceso';
 
   // 1. Proxy
-  const proxyUrl = `/api/secop?where=${encodeURIComponent(whereClause)}&limit=${limit}&resourceId=${SECOP_CONTRACTS_ID}`;
+  const proxyUrl = `/api/secop?where=${encodeURIComponent(whereClause)}&limit=${limit}&resourceId=${SECOP_CONTRACTS_ID}&select=${encodeURIComponent(SELECT_FIELDS)}`;
   try {
     const contracts = await fetchWithCache<RealContract[]>(proxyUrl, cacheKey);
     if (Array.isArray(contracts) && contracts.length > 0) return contracts;
@@ -625,6 +634,7 @@ export async function fetchContractsByEntityName(
   // 2. Directo Socrata
   const params = new URLSearchParams({
     $where: whereClause,
+    $select: SELECT_FIELDS,
     $order: 'fecha_de_firma DESC',
     $limit: String(limit),
   });

@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import type { RealContract, Contract, Department, Municipality, DecentralizedEntityId } from '../utils/types';
 import { DECENTRALIZED_ENTITIES } from '../utils/constants';
-import { fetchContractsByDecentralizedEntity } from '../services/datosGovService';
+import { fetchContractsByDecentralizedEntity, fetchContractsByContractor } from '../services/datosGovService';
 import { analyzeRealContracts, getSemaphoreStats } from '../services/semaforoService';
 import { formatCurrency, formatDate } from '../utils/formatters';
 import { XIcon, SearchIcon, BuildingOfficeIcon } from './Icons';
@@ -38,6 +38,13 @@ const DecentralizedEntitiesModal: React.FC<Props> = ({
   const [contracts, setContracts] = useState<RealContract[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Estado para la búsqueda directa de contratistas en SECOP II
+  const [contractorSearchActive, setContractorSearchActive] = useState(false);
+  const [searchedContractorQuery, setSearchedContractorQuery] = useState('');
+  const [contractorContracts, setContractorContracts] = useState<RealContract[]>([]);
+  const [isContractorLoading, setIsContractorLoading] = useState(false);
+  const [contractorError, setContractorError] = useState<string | null>(null);
 
   // Sincronizar estado cuando se abre el modal
   useEffect(() => {
@@ -78,29 +85,68 @@ const DecentralizedEntitiesModal: React.FC<Props> = ({
     };
   }, [isOpen, selectedEntity, selectedDept, selectedMun]);
 
+  const handleSearchContractor = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    const query = searchTerm.trim();
+    if (!query) {
+      handleClearContractorSearch();
+      return;
+    }
+
+    setIsContractorLoading(true);
+    setContractorError(null);
+    setContractorSearchActive(true);
+    setSearchedContractorQuery(query);
+
+    try {
+      const results = await fetchContractsByContractor(query, 150);
+      setContractorContracts(results);
+    } catch (err) {
+      console.error('Error al consultar contratos del contratista:', err);
+      setContractorError('No fue posible consultar el historial del contratista en SECOP II en este momento.');
+    } finally {
+      setIsContractorLoading(false);
+    }
+  };
+
+  const handleClearContractorSearch = () => {
+    setContractorSearchActive(false);
+    setSearchedContractorQuery('');
+    setContractorContracts([]);
+    setContractorError(null);
+    setSearchTerm('');
+  };
+
   const currentEntityDef = useMemo(
     () => DECENTRALIZED_ENTITIES.find((e) => e.id === selectedEntity) || DECENTRALIZED_ENTITIES[0],
     [selectedEntity],
   );
 
+  const activeRawContracts = useMemo(() => {
+    return contractorSearchActive ? contractorContracts : contracts;
+  }, [contractorSearchActive, contractorContracts, contracts]);
+
   const analyzedContracts = useMemo(() => {
-    return analyzeRealContracts(contracts);
-  }, [contracts]);
+    return analyzeRealContracts(activeRawContracts);
+  }, [activeRawContracts]);
 
   const stats = useMemo(() => {
-    const totalValue = contracts.reduce((acc, c) => {
+    const totalValue = activeRawContracts.reduce((acc, c) => {
       const val = Number(c.valor_contrato) || Number(c.valor_del_contrato) || 0;
       return acc + val;
     }, 0);
     const semStats = getSemaphoreStats(analyzedContracts);
     return {
-      total: contracts.length,
+      total: activeRawContracts.length,
       totalValue,
       semStats,
     };
-  }, [contracts, analyzedContracts]);
+  }, [activeRawContracts, analyzedContracts]);
 
   const filteredContracts = useMemo(() => {
+    if (contractorSearchActive) {
+      return analyzedContracts;
+    }
     if (!searchTerm.trim()) return analyzedContracts;
     const term = searchTerm.toLowerCase();
     return analyzedContracts.filter((c) => {
@@ -111,7 +157,7 @@ const DecentralizedEntitiesModal: React.FC<Props> = ({
         (c.id || '').toLowerCase().includes(term)
       );
     });
-  }, [analyzedContracts, searchTerm]);
+  }, [analyzedContracts, searchTerm, contractorSearchActive]);
 
   if (!isOpen) return null;
 
@@ -162,7 +208,10 @@ const DecentralizedEntitiesModal: React.FC<Props> = ({
             return (
               <button
                 key={ent.id}
-                onClick={() => setSelectedEntity(ent.id)}
+                onClick={() => {
+                  setSelectedEntity(ent.id);
+                  handleClearContractorSearch();
+                }}
                 className={`px-4 py-2.5 rounded-t-lg font-semibold text-xs transition-all whitespace-nowrap flex items-center gap-2 border-t-2 ${
                   isActive
                     ? 'bg-white text-indigo-700 border-indigo-600 shadow-sm'
@@ -176,7 +225,7 @@ const DecentralizedEntitiesModal: React.FC<Props> = ({
           })}
         </div>
 
-        {/* Barra de filtros de ubicación contextual */}
+        {/* Barra de filtros de ubicación contextual y búsqueda de contratistas */}
         <div className="p-4 bg-slate-50 border-b border-slate-200 flex flex-wrap items-center justify-between gap-3">
           <div className="flex flex-wrap items-center gap-3">
             <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-700">
@@ -187,6 +236,7 @@ const DecentralizedEntitiesModal: React.FC<Props> = ({
               onChange={(e) => {
                 setSelectedDept(e.target.value);
                 setSelectedMun('');
+                handleClearContractorSearch();
               }}
               className="border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs bg-white text-slate-800 focus:ring-2 focus:ring-indigo-500 font-medium"
             >
@@ -200,7 +250,10 @@ const DecentralizedEntitiesModal: React.FC<Props> = ({
 
             <select
               value={selectedMun}
-              onChange={(e) => setSelectedMun(e.target.value)}
+              onChange={(e) => {
+                setSelectedMun(e.target.value);
+                handleClearContractorSearch();
+              }}
               disabled={!selectedDept}
               className="border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs bg-white text-slate-800 focus:ring-2 focus:ring-indigo-500 font-medium disabled:bg-slate-200"
             >
@@ -213,16 +266,47 @@ const DecentralizedEntitiesModal: React.FC<Props> = ({
             </select>
           </div>
 
-          <div className="relative min-w-[240px] max-w-xs flex-1">
-            <SearchIcon className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-            <input
-              type="text"
-              placeholder="Buscar por contratista, objeto o ID..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-9 pr-3 py-1.5 text-xs border border-slate-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
-            />
-          </div>
+          {/* Formulario de Búsqueda de Contratista */}
+          <form onSubmit={handleSearchContractor} className="flex items-center gap-2 flex-1 min-w-[280px] max-w-md">
+            <div className="relative flex-1">
+              <SearchIcon className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                placeholder="Nombre o NIT del contratista a auditar..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full pl-9 pr-7 py-2 text-xs border border-slate-300 rounded-lg bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500 font-medium placeholder-slate-400"
+              />
+              {(searchTerm || contractorSearchActive) && (
+                <button
+                  type="button"
+                  onClick={handleClearContractorSearch}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs p-0.5 cursor-pointer"
+                  title="Limpiar búsqueda"
+                >
+                  ✕
+                </button>
+              )}
+            </div>
+            <button
+              type="submit"
+              disabled={isContractorLoading || !searchTerm.trim()}
+              className="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white rounded-lg text-xs font-bold shadow-sm transition-all flex items-center gap-1.5 shrink-0 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+              title="Buscar historial completo de este contratista en SECOP II"
+            >
+              {isContractorLoading ? (
+                <>
+                  <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  <span>Buscando...</span>
+                </>
+              ) : (
+                <>
+                  <SearchIcon className="w-3.5 h-3.5" />
+                  <span>Buscar</span>
+                </>
+              )}
+            </button>
+          </form>
         </div>
 
         {/* Resumen de métricas y semáforos */}
@@ -266,7 +350,47 @@ const DecentralizedEntitiesModal: React.FC<Props> = ({
 
         {/* Listado de Contratos */}
         <div className="flex-1 overflow-y-auto p-4 bg-slate-50/50">
-          {isLoading ? (
+          {contractorSearchActive && isContractorLoading ? (
+            <div className="text-center py-16">
+              <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-indigo-600 border-t-transparent mb-3" />
+              <p className="text-sm font-semibold text-slate-700">
+                Consultando historial de contratos para &ldquo;{searchedContractorQuery}&rdquo; en SECOP II...
+              </p>
+              <p className="text-xs text-slate-400 mt-1">Rastreando todas las adjudicaciones registradas en Datos Abiertos Colombia</p>
+            </div>
+          ) : contractorSearchActive && contractorError ? (
+            <div className="p-6 bg-rose-50 border border-rose-200 rounded-xl text-center text-rose-800 max-w-md mx-auto my-8">
+              <span className="text-2xl block mb-2">⚠️</span>
+              <h4 className="font-bold text-sm">Error en la consulta del contratista</h4>
+              <p className="text-xs mt-1">{contractorError}</p>
+              <button
+                type="button"
+                onClick={handleClearContractorSearch}
+                className="mt-4 px-3.5 py-1.5 bg-rose-600 text-white text-xs font-semibold rounded-lg hover:bg-rose-700 cursor-pointer"
+              >
+                Volver a contratos de la entidad
+              </button>
+            </div>
+          ) : contractorSearchActive && contractorContracts.length === 0 ? (
+            <div className="text-center py-16 px-4 bg-white rounded-xl border border-dashed border-slate-300">
+              <BuildingOfficeIcon className="w-12 h-12 mx-auto text-slate-400 mb-3" />
+              <h4 className="text-base font-bold text-slate-700">
+                No se encontraron contratos registrados para el contratista &ldquo;{searchedContractorQuery}&rdquo;
+              </h4>
+              <p className="text-xs text-slate-500 max-w-md mx-auto mt-1">
+                No se encontraron contratos adjudicados en la base de datos oficial de SECOP II con ese nombre o razón social.
+              </p>
+              <div className="mt-4">
+                <button
+                  type="button"
+                  onClick={handleClearContractorSearch}
+                  className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-semibold text-xs rounded-lg border border-indigo-200 transition-colors cursor-pointer"
+                >
+                  <span>Volver a contratos de {currentEntityDef.shortName}</span>
+                </button>
+              </div>
+            </div>
+          ) : isLoading ? (
             <div className="text-center py-16">
               <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-indigo-600 border-t-transparent mb-3" />
               <p className="text-sm font-medium text-slate-600">
@@ -307,7 +431,32 @@ const DecentralizedEntitiesModal: React.FC<Props> = ({
             </div>
           ) : (
             <div className="space-y-3">
-              {selectedMun && (
+              {contractorSearchActive ? (
+                <div className="p-4 bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 border border-indigo-700/50 rounded-xl text-white shadow-sm mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="space-y-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-xl">💼</span>
+                      <h3 className="text-base font-bold text-white tracking-tight">
+                        Historial del Contratista: <span className="text-amber-300 underline">{searchedContractorQuery}</span>
+                      </h3>
+                      <span className="text-[10px] font-bold bg-amber-400/20 text-amber-300 border border-amber-400/40 px-2 py-0.5 rounded-full uppercase tracking-wider">
+                        SECOP II Oficial
+                      </span>
+                    </div>
+                    <p className="text-xs text-indigo-200">
+                      Se encontraron <strong>{contractorContracts.length} contratos históricos</strong> adjudicados a este contratista en la base de datos nacional. Puedes auditar contrato por contrato haciendo clic en <strong>Ver Expediente</strong>.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleClearContractorSearch}
+                    className="self-start sm:self-center px-3 py-1.5 bg-white/10 hover:bg-white/20 text-white text-xs font-semibold rounded-lg border border-white/20 transition-colors flex items-center gap-1.5 cursor-pointer shrink-0"
+                  >
+                    <span>✕</span>
+                    <span>Volver a contratos de la entidad</span>
+                  </button>
+                </div>
+              ) : selectedMun ? (
                 <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-900 flex items-center gap-2.5 mb-3">
                   <span className="text-lg shrink-0">🏥</span>
                   <div>
@@ -316,7 +465,7 @@ const DecentralizedEntitiesModal: React.FC<Props> = ({
                     <strong>{currentMunName}</strong> ({currentDeptName}). Los contratos de otros municipios han sido excluidos.
                   </div>
                 </div>
-              )}
+              ) : null}
               {filteredContracts.map((c) => {
                 const statusColor =
                   c.status === 'Verde'

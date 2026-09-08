@@ -73,6 +73,7 @@ export default async function handler(req: any, res: any) {
       query,
       resourceId = DEFAULT_RESOURCE_ID,
       where,
+      select,
     } = req.query || {};
 
     const headers: Record<string, string> = {
@@ -92,6 +93,10 @@ export default async function handler(req: any, res: any) {
 
     const params = new URLSearchParams();
 
+    if (select) {
+      params.append('$select', String(select));
+    }
+
     const targetResource = String(resourceId).replace(/[^a-z0-9-]/gi, '') || DEFAULT_RESOURCE_ID;
     const isProcessResource = targetResource === 'p6dx-8zbt';
 
@@ -103,9 +108,9 @@ export default async function handler(req: any, res: any) {
     if (where) {
       params.append('$where', String(where));
     } else if (query) {
-      const cleanQuery = String(query).replace(/'/g, "''");
+      const cleanQuery = String(query).replace(/'/g, "''").toUpperCase();
       const queryCol = isProcessResource ? 'descripci_n_del_procedimiento' : 'objeto_del_contrato';
-      params.append('$where', `${queryCol} like '%25${cleanQuery}%25'`);
+      params.append('$where', `upper(${queryCol}) like '%${cleanQuery}%'`);
     } else if (departamento) {
       const rawDept = String(departamento).trim();
       const normDept = rawDept.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
