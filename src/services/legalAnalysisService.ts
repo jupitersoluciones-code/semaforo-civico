@@ -1,53 +1,53 @@
 import type { LegalThresholds, RealContract } from '../utils/types';
 
-// SMMLV de referencia para contratación pública en Colombia
-const SMMLV_2024 = 1_300_000;
+// SMMLV de referencia para contratación pública en Colombia (Año 2026)
+const SMMLV_2026 = 1_750_000;
 
-// Presupuestos y categorías oficiales de los principales municipios de Colombia
+// Presupuestos y categorías oficiales de los principales municipios de Colombia (vigencia 2026)
 const MUNICIPALITY_FINANCIALS: Record<string, { category: string; annualBudget: number }> = {
-  '05001': { category: 'Especial', annualBudget: 8_500_000_000_000 }, // Medellín
-  '11001': { category: 'Especial', annualBudget: 33_000_000_000_000 }, // Bogotá
-  '76001': { category: 'Especial', annualBudget: 5_500_000_000_000 }, // Cali
-  '08001': { category: 'Especial', annualBudget: 4_200_000_000_000 }, // Barranquilla
-  '13001': { category: 'Especial', annualBudget: 2_800_000_000_000 }, // Cartagena
-  '68001': { category: 'Especial', annualBudget: 3_100_000_000_000 }, // Bucaramanga
-  '05266': { category: '1', annualBudget: 600_000_000_000 }, // Envigado
-  '76109': { category: '1', annualBudget: 800_000_000_000 }, // Buenaventura
-  '54001': { category: '1', annualBudget: 1_200_000_000_000 }, // Cúcuta
-  '66001': { category: '1', annualBudget: 1_100_000_000_000 }, // Pereira
-  '17001': { category: '2', annualBudget: 450_000_000_000 }, // Manizales
-  '73001': { category: '2', annualBudget: 380_000_000_000 }, // Ibagué
-  '41001': { category: '2', annualBudget: 420_000_000_000 }, // Neiva
-  '63001': { category: '2', annualBudget: 410_000_000_000 }, // Armenia
-  '50001': { category: '2', annualBudget: 650_000_000_000 }, // Villavicencio
-  '20001': { category: '2', annualBudget: 550_000_000_000 }, // Valledupar
-  '15001': { category: '3', annualBudget: 250_000_000_000 }, // Tunja
-  '19001': { category: '3', annualBudget: 300_000_000_000 }, // Popayán
-  '52001': { category: '3', annualBudget: 280_000_000_000 }, // Pasto
-  '23001': { category: '3', annualBudget: 320_000_000_000 }, // Montería
-  '47001': { category: '3', annualBudget: 340_000_000_000 }, // Santa Marta
-  '70001': { category: '3', annualBudget: 290_000_000_000 }, // Sincelejo
-  '44001': { category: '3', annualBudget: 270_000_000_000 }, // Riohacha
-  '27001': { category: '4', annualBudget: 180_000_000_000 }, // Quibdó
-  '18001': { category: '4', annualBudget: 190_000_000_000 }, // Florencia
-  '81001': { category: '4', annualBudget: 170_000_000_000 }, // Arauca
-  '85001': { category: '4', annualBudget: 210_000_000_000 }, // Yopal
-  '86001': { category: '5', annualBudget: 110_000_000_000 }, // Mocoa
-  '88001': { category: '4', annualBudget: 160_000_000_000 }, // San Andrés
-  '91001': { category: '6', annualBudget: 60_000_000_000 }, // Leticia
-  '95001': { category: '6', annualBudget: 50_000_000_000 }, // San José del Guaviare
-  '94001': { category: '6', annualBudget: 40_000_000_000 }, // Inírida
-  '97001': { category: '6', annualBudget: 35_000_000_000 }, // Mitú
-  '99001': { category: '6', annualBudget: 35_000_000_000 }, // Puerto Carreño
+  '05001': { category: 'Especial', annualBudget: 11_500_000_000_000 }, // Medellín
+  '11001': { category: 'Especial', annualBudget: 42_000_000_000_000 }, // Bogotá
+  '76001': { category: 'Especial', annualBudget: 7_200_000_000_000 }, // Cali
+  '08001': { category: 'Especial', annualBudget: 5_600_000_000_000 }, // Barranquilla
+  '13001': { category: 'Especial', annualBudget: 3_800_000_000_000 }, // Cartagena
+  '68001': { category: 'Especial', annualBudget: 4_100_000_000_000 }, // Bucaramanga
+  '05266': { category: '1', annualBudget: 800_000_000_000 }, // Envigado
+  '76109': { category: '1', annualBudget: 1_100_000_000_000 }, // Buenaventura
+  '54001': { category: '1', annualBudget: 1_600_000_000_000 }, // Cúcuta
+  '66001': { category: '1', annualBudget: 1_500_000_000_000 }, // Pereira
+  '17001': { category: '2', annualBudget: 600_000_000_000 }, // Manizales
+  '73001': { category: '2', annualBudget: 520_000_000_000 }, // Ibagué
+  '41001': { category: '2', annualBudget: 570_000_000_000 }, // Neiva
+  '63001': { category: '2', annualBudget: 550_000_000_000 }, // Armenia
+  '50001': { category: '2', annualBudget: 880_000_000_000 }, // Villavicencio
+  '20001': { category: '2', annualBudget: 750_000_000_000 }, // Valledupar
+  '15001': { category: '3', annualBudget: 340_000_000_000 }, // Tunja
+  '19001': { category: '3', annualBudget: 410_000_000_000 }, // Popayán
+  '52001': { category: '3', annualBudget: 380_000_000_000 }, // Pasto
+  '23001': { category: '3', annualBudget: 430_000_000_000 }, // Montería
+  '47001': { category: '3', annualBudget: 460_000_000_000 }, // Santa Marta
+  '70001': { category: '3', annualBudget: 390_000_000_000 }, // Sincelejo
+  '44001': { category: '3', annualBudget: 370_000_000_000 }, // Riohacha
+  '27001': { category: '4', annualBudget: 240_000_000_000 }, // Quibdó
+  '18001': { category: '4', annualBudget: 260_000_000_000 }, // Florencia
+  '81001': { category: '4', annualBudget: 230_000_000_000 }, // Arauca
+  '85001': { category: '4', annualBudget: 280_000_000_000 }, // Yopal
+  '86001': { category: '5', annualBudget: 150_000_000_000 }, // Mocoa
+  '88001': { category: '4', annualBudget: 220_000_000_000 }, // San Andrés
+  '91001': { category: '6', annualBudget: 80_000_000_000 }, // Leticia
+  '95001': { category: '6', annualBudget: 70_000_000_000 }, // San José del Guaviare
+  '94001': { category: '6', annualBudget: 55_000_000_000 }, // Inírida
+  '97001': { category: '6', annualBudget: 50_000_000_000 }, // Mitú
+  '99001': { category: '6', annualBudget: 50_000_000_000 }, // Puerto Carreño
 };
 
 export function getLegalThresholds(municipalityCode: string): LegalThresholds {
   const financials = MUNICIPALITY_FINANCIALS[municipalityCode] || {
     category: '6',
-    annualBudget: 45_000_000_000,
+    annualBudget: 60_000_000_000,
   };
 
-  const budgetInSMMLV = financials.annualBudget / SMMLV_2024;
+  const budgetInSMMLV = financials.annualBudget / SMMLV_2026;
   
   // Tabla legal de menor cuantía según el literal b del numeral 2 del artículo 2 de la Ley 1150 de 2007
   let menorCuantiaSMMLV = 280;
@@ -62,7 +62,7 @@ export function getLegalThresholds(municipalityCode: string): LegalThresholds {
     menorCuantiaSMMLV = 450;
   }
 
-  const menorCuantiaLimit = menorCuantiaSMMLV * SMMLV_2024;
+  const menorCuantiaLimit = menorCuantiaSMMLV * SMMLV_2026;
   const minimaCuantiaLimit = menorCuantiaLimit * 0.1;
 
   return {
@@ -70,7 +70,7 @@ export function getLegalThresholds(municipalityCode: string): LegalThresholds {
     municipalityBudgetSMMLV: Math.round(budgetInSMMLV),
     menorCuantiaLimit,
     minimaCuantiaLimit,
-    smmlvValue: SMMLV_2024,
+    smmlvValue: SMMLV_2026,
   };
 }
 

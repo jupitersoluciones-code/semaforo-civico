@@ -46,7 +46,7 @@ const DashboardStats: React.FC<Props> = ({ stats, isLoading }) => {
             {formatCurrency(legalThresholds.menorCuantiaLimit)}
           </p>
           <p className="text-xs text-slate-500 mt-1">
-            SMMLV 2024: {formatCurrency(legalThresholds.smmlvValue)}
+            SMMLV 2026: {formatCurrency(legalThresholds.smmlvValue)}
           </p>
         </div>
 
