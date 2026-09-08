@@ -4,7 +4,12 @@ import { DECENTRALIZED_ENTITIES } from '../utils/constants';
 import { fetchContractsByDecentralizedEntity, fetchContractsByContractor } from '../services/datosGovService';
 import { analyzeRealContracts, getSemaphoreStats } from '../services/semaforoService';
 import { formatCurrency, formatDate } from '../utils/formatters';
-import { XIcon, SearchIcon, BuildingOfficeIcon } from './Icons';
+import {
+  XIcon, SearchIcon, BuildingOfficeIcon, LocationMarkerIcon, WarningIcon,
+  HospitalIcon, GraduationIcon, LeafIcon, MapIcon, TrophyIcon, FishIcon,
+  FlagIcon, BriefcaseIcon, ArrowRightIcon,
+} from './Icons';
+import type { DecentralizedEntityDef } from '../utils/types';
 
 interface Props {
   isOpen: boolean;
@@ -17,6 +22,26 @@ interface Props {
   onViewDetailsClick: (contract: Contract) => void;
   onAlertClick?: (contract: Contract) => void;
 }
+
+// Mapa de íconos SVG por entidad
+const ENTITY_ICON_MAP: Record<string, React.FC<{ className?: string }>> = {
+  ese_hospital: HospitalIcon,
+  sena: GraduationIcon,
+  ica: LeafIcon,
+  ant: MapIcon,
+  inder: TrophyIcon,
+  aunap: FishIcon,
+};
+
+// Paleta de colores de acento por entidad (fondo suave / texto)
+const ENTITY_COLOR_MAP: Record<string, { bg: string; text: string; border: string; activeBg: string; activeText: string }> = {
+  ese_hospital: { bg: 'bg-rose-50', text: 'text-rose-700', border: 'border-rose-200', activeBg: 'bg-rose-600', activeText: 'text-white' },
+  sena: { bg: 'bg-blue-50', text: 'text-blue-700', border: 'border-blue-200', activeBg: 'bg-blue-600', activeText: 'text-white' },
+  ica: { bg: 'bg-emerald-50', text: 'text-emerald-700', border: 'border-emerald-200', activeBg: 'bg-emerald-600', activeText: 'text-white' },
+  ant: { bg: 'bg-amber-50', text: 'text-amber-700', border: 'border-amber-200', activeBg: 'bg-amber-600', activeText: 'text-white' },
+  inder: { bg: 'bg-violet-50', text: 'text-violet-700', border: 'border-violet-200', activeBg: 'bg-violet-600', activeText: 'text-white' },
+  aunap: { bg: 'bg-cyan-50', text: 'text-cyan-700', border: 'border-cyan-200', activeBg: 'bg-cyan-600', activeText: 'text-white' },
+};
 
 const DecentralizedEntitiesModal: React.FC<Props> = ({
   isOpen,
@@ -39,14 +64,12 @@ const DecentralizedEntitiesModal: React.FC<Props> = ({
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Estado para la búsqueda directa de contratistas en SECOP II
   const [contractorSearchActive, setContractorSearchActive] = useState(false);
   const [searchedContractorQuery, setSearchedContractorQuery] = useState('');
   const [contractorContracts, setContractorContracts] = useState<RealContract[]>([]);
   const [isContractorLoading, setIsContractorLoading] = useState(false);
   const [contractorError, setContractorError] = useState<string | null>(null);
 
-  // Sincronizar estado cuando se abre el modal
   useEffect(() => {
     if (isOpen) {
       if (initialDepartment) setSelectedDept(initialDepartment);
@@ -57,9 +80,8 @@ const DecentralizedEntitiesModal: React.FC<Props> = ({
     }
   }, [isOpen, initialDepartment, initialMunicipality, initialEntityId]);
 
-  // Cargar contratos de la entidad seleccionada en la ubicación
   useEffect(() => {
-    if (!isOpen || !selectedDept) return;  // No cargar si no hay departamento
+    if (!isOpen || !selectedDept) return;
 
     let isMounted = true;
     setIsLoading(true);
@@ -81,18 +103,13 @@ const DecentralizedEntitiesModal: React.FC<Props> = ({
         }
       });
 
-    return () => {
-      isMounted = false;
-    };
+    return () => { isMounted = false; };
   }, [isOpen, selectedEntity, selectedDept, selectedMun]);
 
   const handleSearchContractor = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     const query = searchTerm.trim();
-    if (!query) {
-      handleClearContractorSearch();
-      return;
-    }
+    if (!query) { handleClearContractorSearch(); return; }
 
     setIsContractorLoading(true);
     setContractorError(null);
@@ -104,7 +121,7 @@ const DecentralizedEntitiesModal: React.FC<Props> = ({
       setContractorContracts(results);
     } catch (err) {
       console.error('Error al consultar contratos del contratista:', err);
-      setContractorError('No fue posible consultar el historial del contratista en SECOP II en este momento.');
+      setContractorError('No fue posible consultar el historial del contratista en SECOP II.');
     } finally {
       setIsContractorLoading(false);
     }
@@ -123,401 +140,403 @@ const DecentralizedEntitiesModal: React.FC<Props> = ({
     [selectedEntity],
   );
 
-  const activeRawContracts = useMemo(() => {
-    return contractorSearchActive ? contractorContracts : contracts;
-  }, [contractorSearchActive, contractorContracts, contracts]);
+  const activeRawContracts = useMemo(
+    () => contractorSearchActive ? contractorContracts : contracts,
+    [contractorSearchActive, contractorContracts, contracts],
+  );
 
-  const analyzedContracts = useMemo(() => {
-    return analyzeRealContracts(activeRawContracts);
-  }, [activeRawContracts]);
+  const analyzedContracts = useMemo(() => analyzeRealContracts(activeRawContracts), [activeRawContracts]);
 
   const stats = useMemo(() => {
     const totalValue = activeRawContracts.reduce((acc, c) => {
-      const val = Number(c.valor_contrato) || Number(c.valor_del_contrato) || 0;
-      return acc + val;
+      return acc + (Number(c.valor_contrato) || Number(c.valor_del_contrato) || 0);
     }, 0);
     const semStats = getSemaphoreStats(analyzedContracts);
-    return {
-      total: activeRawContracts.length,
-      totalValue,
-      semStats,
-    };
+    return { total: activeRawContracts.length, totalValue, semStats };
   }, [activeRawContracts, analyzedContracts]);
 
   const filteredContracts = useMemo(() => {
-    if (contractorSearchActive) {
-      return analyzedContracts;
-    }
+    if (contractorSearchActive) return analyzedContracts;
     if (!searchTerm.trim()) return analyzedContracts;
     const term = searchTerm.toLowerCase();
-    return analyzedContracts.filter((c) => {
-      return (
-        (c.name || '').toLowerCase().includes(term) ||
-        (c.contractor || '').toLowerCase().includes(term) ||
-        (c.entityName || '').toLowerCase().includes(term) ||
-        (c.id || '').toLowerCase().includes(term)
-      );
-    });
+    return analyzedContracts.filter((c) =>
+      (c.name || '').toLowerCase().includes(term) ||
+      (c.contractor || '').toLowerCase().includes(term) ||
+      (c.entityName || '').toLowerCase().includes(term) ||
+      (c.id || '').toLowerCase().includes(term),
+    );
   }, [analyzedContracts, searchTerm, contractorSearchActive]);
 
   if (!isOpen) return null;
 
   const currentDeptName = departments.find((d) => d.code === selectedDept)?.name || selectedDept;
   const currentMunName = municipalities.find((m) => m.code === selectedMun)?.name || '';
+  const EntityIcon = ENTITY_ICON_MAP[selectedEntity] || BuildingOfficeIcon;
+  const entityColors = ENTITY_COLOR_MAP[selectedEntity] || ENTITY_COLOR_MAP.ese_hospital;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in overflow-y-auto">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm overflow-y-auto">
       <div
         className="bg-white rounded-2xl shadow-2xl w-full max-w-6xl max-h-[92vh] flex flex-col border border-slate-200 overflow-hidden"
         role="dialog"
         aria-modal="true"
         aria-labelledby="modal-title"
       >
-        {/* Header */}
-        <div className="p-5 border-b border-slate-200 flex items-start justify-between bg-gradient-to-r from-slate-900 via-slate-800 to-indigo-950 text-white">
+        {/* ── HEADER ── */}
+        <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-white">
           <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-xl bg-white/10 flex items-center justify-center text-2xl shadow-inner border border-white/10">
-              {currentEntityDef.icon}
+            <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${entityColors.bg} ${entityColors.text} border ${entityColors.border}`}>
+              <EntityIcon className="w-5 h-5" />
             </div>
             <div>
-              <div className="flex items-center gap-2">
-                <h2 id="modal-title" className="text-xl font-bold text-white">
-                  Auditoría a Entidades Descentralizadas
+              <div className="flex items-center gap-2.5">
+                <h2 id="modal-title" className="text-base font-bold text-slate-900 tracking-tight">
+                  Auditoría — Entidades Descentralizadas
                 </h2>
-                <span className="text-xs bg-indigo-500/30 text-indigo-200 px-2 py-0.5 rounded-full border border-indigo-400/30 font-medium">
+                <span className="hidden sm:inline text-[10px] font-bold uppercase tracking-widest text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full border border-slate-200">
                   SECOP II Oficial
                 </span>
               </div>
-              <p className="text-xs text-slate-300 mt-0.5">
-                Vigilancia ciudadana a E.S.E. Hospitales, SENA, ICA, ANT, INDER y AUNAP en territorio.
+              <p className="text-xs text-slate-500 mt-0.5">
+                {currentEntityDef.name}
+                {currentDeptName && (
+                  <span className="text-slate-400"> — {currentMunName || currentDeptName}</span>
+                )}
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
-            aria-label="Cerrar modal"
+            className="p-2 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
+            aria-label="Cerrar"
           >
-            <XIcon className="w-6 h-6" />
+            <XIcon className="w-5 h-5" />
           </button>
         </div>
 
-        {/* Pestañas de entidades */}
-        <div className="bg-slate-100 px-5 pt-3 border-b border-slate-200 flex gap-2 overflow-x-auto">
+        {/* ── TABS DE ENTIDADES ── */}
+        <div className="px-6 pt-3 pb-0 border-b border-slate-200 bg-slate-50 flex gap-1 overflow-x-auto">
           {DECENTRALIZED_ENTITIES.map((ent) => {
             const isActive = selectedEntity === ent.id;
+            const EIcon = ENTITY_ICON_MAP[ent.id] || BuildingOfficeIcon;
+            const eColors = ENTITY_COLOR_MAP[ent.id] || ENTITY_COLOR_MAP.ese_hospital;
             return (
               <button
                 key={ent.id}
-                onClick={() => {
-                  setSelectedEntity(ent.id);
-                  handleClearContractorSearch();
-                }}
-                className={`px-4 py-2.5 rounded-t-lg font-semibold text-xs transition-all whitespace-nowrap flex items-center gap-2 border-t-2 ${
+                onClick={() => { setSelectedEntity(ent.id); handleClearContractorSearch(); }}
+                className={`flex items-center gap-2 px-4 py-2.5 rounded-t-lg font-semibold text-xs whitespace-nowrap transition-all border-b-2 ${
                   isActive
-                    ? 'bg-white text-indigo-700 border-indigo-600 shadow-sm'
-                    : 'bg-transparent text-slate-600 border-transparent hover:text-slate-900 hover:bg-slate-200/60'
+                    ? `bg-white ${eColors.text} border-b-2 border-current shadow-sm`
+                    : 'bg-transparent text-slate-500 border-transparent hover:text-slate-800 hover:bg-white/60'
                 }`}
               >
-                <span className="text-base">{ent.icon}</span>
+                <EIcon className="w-3.5 h-3.5" />
                 <span>{ent.shortName}</span>
               </button>
             );
           })}
         </div>
 
-        {/* Barra de filtros de ubicación contextual y búsqueda de contratistas */}
-        <div className="p-4 bg-slate-50 border-b border-slate-200 flex flex-wrap items-center justify-between gap-3">
-          <div className="flex flex-wrap items-center gap-3">
-            <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-700">
-              <span>📍 Ubicación:</span>
-            </div>
-            <select
-              value={selectedDept}
-              onChange={(e) => {
-                setSelectedDept(e.target.value);
-                setSelectedMun('');
-                handleClearContractorSearch();
-              }}
-              className="border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs bg-white text-slate-800 focus:ring-2 focus:ring-indigo-500 font-medium"
-            >
-              <option value="">-- Selecciona Departamento --</option>
-              {departments.map((d) => (
-                <option key={d.code} value={d.code}>
-                  {d.name}
-                </option>
-              ))}
-            </select>
-
-            <select
-              value={selectedMun}
-              onChange={(e) => {
-                setSelectedMun(e.target.value);
-                handleClearContractorSearch();
-              }}
-              disabled={!selectedDept}
-              className="border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs bg-white text-slate-800 focus:ring-2 focus:ring-indigo-500 font-medium disabled:bg-slate-200"
-            >
-              <option value="">🏛️ Todo el departamento</option>
-              {municipalities.map((m) => (
-                <option key={m.code} value={m.code}>
-                  {m.name}
-                </option>
-              ))}
-            </select>
+        {/* ── BARRA DE FILTROS Y BÚSQUEDA ── */}
+        <div className="px-6 py-3 bg-white border-b border-slate-200 flex flex-wrap items-center gap-3">
+          {/* Ubicación */}
+          <div className="flex items-center gap-2 shrink-0">
+            <LocationMarkerIcon className="w-4 h-4 text-slate-400" />
+            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Ubicación</span>
           </div>
 
-          {/* Formulario de Búsqueda de Contratista */}
-          <form onSubmit={handleSearchContractor} className="flex items-center gap-2 flex-1 min-w-[280px] max-w-md">
+          <select
+            value={selectedDept}
+            onChange={(e) => { setSelectedDept(e.target.value); setSelectedMun(''); handleClearContractorSearch(); }}
+            className="form-select text-xs py-1.5 max-w-[200px]"
+          >
+            <option value="">— Seleccionar departamento —</option>
+            {departments.map((d) => (
+              <option key={d.code} value={d.code}>{d.name}</option>
+            ))}
+          </select>
+
+          <select
+            value={selectedMun}
+            onChange={(e) => { setSelectedMun(e.target.value); handleClearContractorSearch(); }}
+            disabled={!selectedDept}
+            className="form-select text-xs py-1.5 max-w-[200px]"
+          >
+            <option value="">Todo el departamento</option>
+            {municipalities.map((m) => (
+              <option key={m.code} value={m.code}>{m.name}</option>
+            ))}
+          </select>
+
+          {/* Separador */}
+          <div className="h-6 w-px bg-slate-200 hidden sm:block" />
+
+          {/* Búsqueda de contratista */}
+          <form onSubmit={handleSearchContractor} className="flex items-center gap-2 flex-1 min-w-[260px] max-w-md">
             <div className="relative flex-1">
-              <SearchIcon className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+              <BriefcaseIcon className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
               <input
                 type="text"
-                placeholder="Nombre o NIT del contratista a auditar..."
+                placeholder="Auditar contratista por nombre o NIT..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-9 pr-7 py-2 text-xs border border-slate-300 rounded-lg bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500 font-medium placeholder-slate-400"
+                className="w-full pl-9 pr-7 py-1.5 text-xs border border-slate-300 rounded-lg bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors placeholder-slate-400"
               />
               {(searchTerm || contractorSearchActive) && (
                 <button
                   type="button"
                   onClick={handleClearContractorSearch}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs p-0.5 cursor-pointer"
-                  title="Limpiar búsqueda"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
                 >
-                  ✕
+                  <XIcon className="w-3.5 h-3.5" />
                 </button>
               )}
             </div>
             <button
               type="submit"
               disabled={isContractorLoading || !searchTerm.trim()}
-              className="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white rounded-lg text-xs font-bold shadow-sm transition-all flex items-center gap-1.5 shrink-0 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
-              title="Buscar historial completo de este contratista en SECOP II"
+              className="btn-primary text-xs py-1.5 px-3 shrink-0"
             >
               {isContractorLoading ? (
-                <>
-                  <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  <span>Buscando...</span>
-                </>
+                <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
               ) : (
-                <>
-                  <SearchIcon className="w-3.5 h-3.5" />
-                  <span>Buscar</span>
-                </>
+                <SearchIcon className="w-3.5 h-3.5" />
               )}
+              <span className="hidden sm:inline">{isContractorLoading ? 'Buscando...' : 'Buscar'}</span>
             </button>
           </form>
         </div>
 
-        {/* Resumen de métricas y semáforos */}
-        <div className="p-4 bg-white border-b border-slate-200 grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <div className="bg-slate-50 border border-slate-200 p-3 rounded-xl">
-            <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block">
-              Contratos Encontrados
+        {/* ── MÉTRICAS ── */}
+        <div className="px-6 py-3 bg-white border-b border-slate-200 grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <div className="stat-card">
+            <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block">
+              Contratos encontrados
             </span>
             <div className="flex items-baseline gap-2 mt-1">
-              <span className="text-xl font-bold text-slate-800">{stats.total}</span>
-              <span className="text-xs text-slate-500">
-                {currentMunName ? currentMunName : currentDeptName}
+              <span className="text-2xl font-bold text-slate-900">{stats.total}</span>
+              <span className="text-xs text-slate-400 truncate">
+                {currentMunName || currentDeptName || 'Nacional'}
               </span>
             </div>
           </div>
 
-          <div className="bg-slate-50 border border-slate-200 p-3 rounded-xl">
-            <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block">
-              Monto Total Adjudicado
+          <div className="stat-card">
+            <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block">
+              Valor total adjudicado
             </span>
-            <span className="text-lg font-bold text-slate-800 block mt-1 truncate" title={formatCurrency(stats.totalValue)}>
+            <span
+              className="text-lg font-bold text-slate-900 block mt-1 truncate"
+              title={formatCurrency(stats.totalValue)}
+            >
               {formatCurrency(stats.totalValue)}
             </span>
           </div>
 
-          <div className="bg-slate-50 border border-slate-200 p-3 rounded-xl col-span-2 flex items-center justify-around gap-2">
+          <div className="stat-card col-span-2 flex items-center justify-around">
             <div className="text-center">
-              <span className="text-xs font-semibold text-emerald-700 block">🟢 Bajo Riesgo</span>
-              <span className="text-lg font-bold text-emerald-800">{stats.semStats.green}</span>
+              <div className="flex items-center gap-1.5 justify-center mb-0.5">
+                <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 inline-block" />
+                <span className="text-[11px] font-semibold text-emerald-700">Bajo Riesgo</span>
+              </div>
+              <span className="text-xl font-bold text-emerald-800">{stats.semStats.green}</span>
             </div>
-            <div className="text-center border-x border-slate-200 px-4">
-              <span className="text-xs font-semibold text-amber-700 block">🟡 Alerta Media</span>
-              <span className="text-lg font-bold text-amber-800">{stats.semStats.yellow}</span>
-            </div>
+            <div className="w-px h-8 bg-slate-200" />
             <div className="text-center">
-              <span className="text-xs font-semibold text-rose-700 block">🔴 Alto Riesgo</span>
-              <span className="text-lg font-bold text-rose-800">{stats.semStats.red}</span>
+              <div className="flex items-center gap-1.5 justify-center mb-0.5">
+                <span className="w-2.5 h-2.5 rounded-full bg-amber-400 inline-block" />
+                <span className="text-[11px] font-semibold text-amber-700">Alerta Media</span>
+              </div>
+              <span className="text-xl font-bold text-amber-800">{stats.semStats.yellow}</span>
+            </div>
+            <div className="w-px h-8 bg-slate-200" />
+            <div className="text-center">
+              <div className="flex items-center gap-1.5 justify-center mb-0.5">
+                <span className="w-2.5 h-2.5 rounded-full bg-rose-500 inline-block" />
+                <span className="text-[11px] font-semibold text-rose-700">Alto Riesgo</span>
+              </div>
+              <span className="text-xl font-bold text-rose-800">{stats.semStats.red}</span>
             </div>
           </div>
         </div>
 
-        {/* Listado de Contratos */}
-        <div className="flex-1 overflow-y-auto p-4 bg-slate-50/50">
-          {/* Aviso cuando no hay departamento seleccionado */}
+        {/* ── LISTADO ── */}
+        <div className="flex-1 overflow-y-auto p-5 bg-slate-50/50">
+          {/* Sin departamento */}
           {!selectedDept ? (
-            <div className="text-center py-20 px-4">
-              <BuildingOfficeIcon className="w-14 h-14 mx-auto text-slate-300 mb-4" />
-              <h4 className="text-base font-bold text-slate-700 mb-1">
+            <div className="text-center py-16 px-4">
+              <div className={`w-16 h-16 rounded-2xl ${entityColors.bg} ${entityColors.text} border ${entityColors.border} flex items-center justify-center mx-auto mb-4`}>
+                <EntityIcon className="w-8 h-8" />
+              </div>
+              <h4 className="text-base font-bold text-slate-800 mb-1">
                 Selecciona un departamento para iniciar la auditoría
               </h4>
-              <p className="text-xs text-slate-500 max-w-sm mx-auto">
-                Usa el selector <strong>Departamento</strong> de arriba para elegir el territorio que deseas auditar. Los contratos de {currentEntityDef.shortName} se cargarán automáticamente.
+              <p className="text-xs text-slate-500 max-w-sm mx-auto mb-5">
+                Elige el territorio en el selector de arriba. Los contratos de{' '}
+                <strong>{currentEntityDef.shortName}</strong> se cargarán automáticamente.
               </p>
-              <div className="mt-4 flex flex-wrap gap-2 justify-center">
-                {departments.slice(0, 8).map((d) => (
+              <div className="flex flex-wrap gap-2 justify-center max-w-lg mx-auto">
+                {departments.slice(0, 10).map((d) => (
                   <button
                     key={d.code}
                     type="button"
                     onClick={() => setSelectedDept(d.code)}
-                    className="text-xs px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-slate-700 hover:bg-indigo-50 hover:border-indigo-300 hover:text-indigo-700 font-medium transition-all"
+                    className="text-xs px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-slate-700 hover:bg-blue-50 hover:border-blue-300 hover:text-blue-700 font-medium transition-all shadow-sm"
                   >
                     {d.name}
                   </button>
                 ))}
               </div>
             </div>
+
           ) : contractorSearchActive && isContractorLoading ? (
             <div className="text-center py-16">
-              <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-indigo-600 border-t-transparent mb-3" />
+              <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-blue-600 border-t-transparent mb-3" />
               <p className="text-sm font-semibold text-slate-700">
-                Consultando historial de contratos para &ldquo;{searchedContractorQuery}&rdquo; en SECOP II...
+                Consultando historial de «{searchedContractorQuery}» en SECOP II...
               </p>
-              <p className="text-xs text-slate-400 mt-1">Rastreando todas las adjudicaciones registradas en Datos Abiertos Colombia</p>
+              <p className="text-xs text-slate-400 mt-1">Rastreando todas las adjudicaciones en Datos Abiertos Colombia</p>
             </div>
+
           ) : contractorSearchActive && contractorError ? (
             <div className="p-6 bg-rose-50 border border-rose-200 rounded-xl text-center text-rose-800 max-w-md mx-auto my-8">
-              <span className="text-2xl block mb-2">⚠️</span>
+              <WarningIcon className="w-8 h-8 text-rose-500 mx-auto mb-2" />
               <h4 className="font-bold text-sm">Error en la consulta del contratista</h4>
               <p className="text-xs mt-1">{contractorError}</p>
               <button
                 type="button"
                 onClick={handleClearContractorSearch}
-                className="mt-4 px-3.5 py-1.5 bg-rose-600 text-white text-xs font-semibold rounded-lg hover:bg-rose-700 cursor-pointer"
+                className="mt-4 btn-secondary text-xs py-1.5"
               >
                 Volver a contratos de la entidad
               </button>
             </div>
+
           ) : contractorSearchActive && contractorContracts.length === 0 ? (
             <div className="text-center py-16 px-4 bg-white rounded-xl border border-dashed border-slate-300">
-              <BuildingOfficeIcon className="w-12 h-12 mx-auto text-slate-400 mb-3" />
+              <BuildingOfficeIcon className="w-10 h-10 mx-auto text-slate-300 mb-3" />
               <h4 className="text-base font-bold text-slate-700">
-                No se encontraron contratos registrados para el contratista &ldquo;{searchedContractorQuery}&rdquo;
+                Sin contratos para «{searchedContractorQuery}»
               </h4>
               <p className="text-xs text-slate-500 max-w-md mx-auto mt-1">
-                No se encontraron contratos adjudicados en la base de datos oficial de SECOP II con ese nombre o razón social.
+                No se encontraron contratos adjudicados en SECOP II con ese nombre o razón social.
               </p>
-              <div className="mt-4">
-                <button
-                  type="button"
-                  onClick={handleClearContractorSearch}
-                  className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-semibold text-xs rounded-lg border border-indigo-200 transition-colors cursor-pointer"
-                >
-                  <span>Volver a contratos de {currentEntityDef.shortName}</span>
-                </button>
-              </div>
+              <button
+                type="button"
+                onClick={handleClearContractorSearch}
+                className="mt-4 btn-secondary text-xs py-1.5"
+              >
+                Volver a contratos de {currentEntityDef.shortName}
+              </button>
             </div>
+
           ) : isLoading ? (
             <div className="text-center py-16">
-              <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-indigo-600 border-t-transparent mb-3" />
+              <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-blue-600 border-t-transparent mb-3" />
               <p className="text-sm font-medium text-slate-600">
                 Consultando contratos de {currentEntityDef.name} en SECOP II...
               </p>
-              <p className="text-xs text-slate-400 mt-1">Conectando con la base oficial de Datos Abiertos Colombia</p>
+              <p className="text-xs text-slate-400 mt-1">Conectando con Datos Abiertos Colombia</p>
             </div>
+
           ) : error ? (
             <div className="p-6 bg-rose-50 border border-rose-200 rounded-xl text-center text-rose-800 max-w-md mx-auto my-8">
-              <span className="text-2xl block mb-2">⚠️</span>
+              <WarningIcon className="w-8 h-8 text-rose-500 mx-auto mb-2" />
               <h4 className="font-bold text-sm">Error en la consulta</h4>
               <p className="text-xs mt-1">{error}</p>
             </div>
+
           ) : filteredContracts.length === 0 ? (
             <div className="text-center py-16 px-4 bg-white rounded-xl border border-dashed border-slate-300">
-              <BuildingOfficeIcon className="w-12 h-12 mx-auto text-slate-400 mb-3" />
+              <BuildingOfficeIcon className="w-10 h-10 mx-auto text-slate-300 mb-3" />
               <h4 className="text-base font-bold text-slate-700">
-                No se encontraron contratos registrados para {currentEntityDef.shortName}
+                Sin contratos registrados para {currentEntityDef.shortName}
               </h4>
               <p className="text-xs text-slate-500 max-w-md mx-auto mt-1">
-                En {currentMunName ? `${currentMunName} (${currentDeptName})` : currentDeptName}, no se registran contratos en SECOP II bajo los criterios específicos de esta entidad.
+                En {currentMunName ? `${currentMunName} (${currentDeptName})` : currentDeptName}, no se
+                registran contratos en SECOP II bajo los criterios de esta entidad.
               </p>
               {selectedMun && (
-                <div className="mt-4">
-                  <p className="text-[11px] text-slate-400 mb-2">
-                    La búsqueda está aislada estrictamente a {currentMunName} para evitar confusiones con otros municipios.
-                  </p>
-                  <button
-                    type="button"
-                    onClick={() => setSelectedMun('')}
-                    className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-semibold text-xs rounded-lg border border-indigo-200 transition-colors"
-                  >
-                    <span>🏛️</span>
-                    <span>Ver contratos de {currentEntityDef.shortName} en todo el departamento ({currentDeptName})</span>
-                  </button>
-                </div>
+                <button
+                  type="button"
+                  onClick={() => setSelectedMun('')}
+                  className="mt-4 btn-secondary text-xs py-1.5"
+                >
+                  Ver todo el departamento ({currentDeptName})
+                </button>
               )}
             </div>
+
           ) : (
             <div className="space-y-3">
-              {contractorSearchActive ? (
-                <div className="p-4 bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 border border-indigo-700/50 rounded-xl text-white shadow-sm mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              {/* Banner de búsqueda por contratista activa */}
+              {contractorSearchActive && (
+                <div className="p-4 bg-slate-900 border border-slate-700 rounded-xl text-white flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-2">
                   <div className="space-y-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="text-xl">💼</span>
-                      <h3 className="text-base font-bold text-white tracking-tight">
-                        Historial del Contratista: <span className="text-amber-300 underline">{searchedContractorQuery}</span>
+                    <div className="flex items-center gap-2">
+                      <BriefcaseIcon className="w-4 h-4 text-amber-400 shrink-0" />
+                      <h3 className="text-sm font-bold">
+                        Historial: <span className="text-amber-300">{searchedContractorQuery}</span>
                       </h3>
                       <span className="text-[10px] font-bold bg-amber-400/20 text-amber-300 border border-amber-400/40 px-2 py-0.5 rounded-full uppercase tracking-wider">
-                        SECOP II Oficial
+                        SECOP II
                       </span>
                     </div>
-                    <p className="text-xs text-indigo-200">
-                      Se encontraron <strong>{contractorContracts.length} contratos históricos</strong> adjudicados a este contratista en la base de datos nacional. Puedes auditar contrato por contrato haciendo clic en <strong>Ver Expediente</strong>.
+                    <p className="text-xs text-slate-400">
+                      <strong className="text-slate-300">{contractorContracts.length} contratos</strong> adjudicados a este contratista en la base de datos nacional.
                     </p>
                   </div>
                   <button
                     type="button"
                     onClick={handleClearContractorSearch}
-                    className="self-start sm:self-center px-3 py-1.5 bg-white/10 hover:bg-white/20 text-white text-xs font-semibold rounded-lg border border-white/20 transition-colors flex items-center gap-1.5 cursor-pointer shrink-0"
+                    className="self-start sm:self-center btn-ghost text-white/70 text-xs py-1 px-3 border border-white/10"
                   >
-                    <span>✕</span>
-                    <span>Volver a contratos de la entidad</span>
+                    <XIcon className="w-3.5 h-3.5" />
+                    <span>Volver a la entidad</span>
                   </button>
                 </div>
-              ) : selectedMun ? (
-                <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-900 flex items-center gap-2.5 mb-3">
-                  <span className="text-lg shrink-0">🏥</span>
-                  <div>
-                    <span className="font-bold">Auditoría Exclusiva Municipal:</span>{' '}
-                    Mostrando únicamente contratos correspondientes al hospital o entidad de{' '}
-                    <strong>{currentMunName}</strong> ({currentDeptName}). Los contratos de otros municipios han sido excluidos.
+              )}
+
+              {/* Banner de auditoría municipal */}
+              {!contractorSearchActive && selectedMun && (
+                <div className={`p-3 ${entityColors.bg} border ${entityColors.border} rounded-xl text-xs flex items-center gap-2.5 mb-2`}>
+                  <LocationMarkerIcon className={`w-4 h-4 ${entityColors.text} shrink-0`} />
+                  <div className={entityColors.text}>
+                    <span className="font-bold">Auditoría Municipal Exclusiva:</span>{' '}
+                    Mostrando únicamente contratos de <strong>{currentEntityDef.shortName}</strong> en{' '}
+                    <strong>{currentMunName}</strong> ({currentDeptName}).
                   </div>
                 </div>
-              ) : null}
+              )}
+
+              {/* Tarjetas de contratos */}
               {filteredContracts.map((c) => {
-                const statusColor =
+                const statusConfig =
                   c.status === 'Verde'
-                    ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                    ? { pill: 'bg-emerald-50 text-emerald-700 border-emerald-200', dot: 'bg-emerald-500', label: 'Bajo Riesgo' }
                     : c.status === 'Amarillo'
-                      ? 'bg-amber-50 text-amber-700 border-amber-200'
-                      : 'bg-rose-50 text-rose-700 border-rose-200';
+                      ? { pill: 'bg-amber-50 text-amber-700 border-amber-200', dot: 'bg-amber-400', label: 'Alerta Media' }
+                      : { pill: 'bg-rose-50 text-rose-700 border-rose-200', dot: 'bg-rose-500', label: 'Alto Riesgo' };
 
                 return (
                   <div
                     key={c.id}
-                    className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm hover:shadow-md transition-shadow flex flex-col md:flex-row md:items-center justify-between gap-4"
+                    className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm hover:shadow-md transition-all flex flex-col md:flex-row md:items-center justify-between gap-4"
                   >
                     <div className="space-y-1.5 flex-1 min-w-0">
                       <div className="flex flex-wrap items-center gap-2">
-                        <span className="text-xs font-bold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded border border-indigo-100 font-mono">
+                        <span className="text-xs font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded font-mono">
                           {c.id}
                         </span>
-                        <span className={`text-[11px] font-bold px-2 py-0.5 rounded border ${statusColor}`}>
-                          Semáforo {c.status}
+                        <span className={`inline-flex items-center gap-1.5 text-[11px] font-bold px-2 py-0.5 rounded-full border ${statusConfig.pill}`}>
+                          <span className={`w-1.5 h-1.5 rounded-full ${statusConfig.dot}`} />
+                          {statusConfig.label}
                         </span>
-                        <span className="text-xs text-slate-500">
-                          {c.procurementMethod}
-                        </span>
+                        <span className="text-[11px] text-slate-400 font-medium">{c.procurementMethod}</span>
                       </div>
 
                       <h4
-                        className="font-semibold text-slate-800 text-sm line-clamp-2 cursor-pointer hover:text-indigo-600 transition-colors"
+                        className="font-semibold text-slate-800 text-sm line-clamp-2 cursor-pointer hover:text-blue-600 transition-colors"
                         title={c.name}
                         onClick={() => onViewDetailsClick(c)}
                         role="button"
@@ -526,16 +545,19 @@ const DecentralizedEntitiesModal: React.FC<Props> = ({
                         {c.name}
                       </h4>
 
-                      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-600">
+                      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-500">
                         <span>
-                          <strong className="text-slate-700">Entidad:</strong> {c.entityName || 'Entidad Oficial'}
+                          <span className="font-semibold text-slate-700">Entidad:</span>{' '}
+                          {c.entityName || 'Entidad Oficial'}
                         </span>
                         <span>
-                          <strong className="text-slate-700">Contratista:</strong> {c.contractor}
+                          <span className="font-semibold text-slate-700">Contratista:</span>{' '}
+                          {c.contractor}
                         </span>
                         {c.startDate && (
                           <span>
-                            <strong className="text-slate-700">Firma:</strong> {formatDate(c.startDate)}
+                            <span className="font-semibold text-slate-700">Firma:</span>{' '}
+                            {formatDate(c.startDate)}
                           </span>
                         )}
                       </div>
@@ -543,7 +565,9 @@ const DecentralizedEntitiesModal: React.FC<Props> = ({
 
                     <div className="flex md:flex-col items-center md:items-end justify-between md:justify-center gap-2 pt-2 md:pt-0 border-t md:border-t-0 border-slate-100">
                       <div className="text-right">
-                        <span className="text-[11px] font-medium text-slate-500 block">Valor Contrato</span>
+                        <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide block">
+                          Valor
+                        </span>
                         <span className="text-base font-bold text-slate-900 font-mono">
                           {formatCurrency(c.value)}
                         </span>
@@ -554,18 +578,19 @@ const DecentralizedEntitiesModal: React.FC<Props> = ({
                           <button
                             type="button"
                             onClick={() => onAlertClick(c)}
-                            className="px-2.5 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-lg text-xs font-semibold transition-colors"
+                            className="p-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 rounded-lg transition-colors"
                             title="Reportar anomalía ciudadana"
                           >
-                            🚨 Alerta
+                            <FlagIcon className="w-4 h-4" />
                           </button>
                         )}
                         <button
                           type="button"
                           onClick={() => onViewDetailsClick(c)}
-                          className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-semibold shadow-sm transition-colors cursor-pointer"
+                          className="btn-primary text-xs py-1.5 px-3"
                         >
-                          Ver Expediente
+                          <ArrowRightIcon className="w-3.5 h-3.5" />
+                          <span>Expediente</span>
                         </button>
                       </div>
                     </div>
@@ -576,16 +601,17 @@ const DecentralizedEntitiesModal: React.FC<Props> = ({
           )}
         </div>
 
-        {/* Footer */}
-        <div className="p-4 bg-white border-t border-slate-200 flex items-center justify-between text-xs text-slate-500">
+        {/* ── FOOTER ── */}
+        <div className="px-6 py-3 bg-white border-t border-slate-200 flex items-center justify-between text-xs text-slate-400">
           <span>
-            Mostrando {filteredContracts.length} de {contracts.length} contratos auditados.
+            {filteredContracts.length} de {contracts.length} contratos auditados
+            {currentDeptName && ` · ${currentMunName || currentDeptName}`}
           </span>
           <button
             onClick={onClose}
-            className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg font-semibold transition-colors"
+            className="btn-secondary text-xs py-1.5 px-4"
           >
-            Cerrar Auditoría
+            Cerrar
           </button>
         </div>
       </div>
