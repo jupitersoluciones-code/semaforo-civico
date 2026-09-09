@@ -1,0 +1,512 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Semáforo Cívico — Portafolio Corporativo & Solución de Auditoría</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background-color: #0b0f19;
+      color: #1e293b;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    /* Contenedor en pantalla para previsualización */
+    .screen-wrapper {
+      max-width: 900px;
+      margin: 30px auto;
+      display: flex;
+      flex-direction: column;
+      gap: 30px;
+    }
+
+    /* Dimensiones exactas Formato Carta (Letter: 215.9mm x 279.4mm) */
+    .brochure-page {
+      width: 215.9mm;
+      height: 279.4mm;
+      max-height: 279.4mm;
+      background: #ffffff;
+      margin: 0 auto;
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 10mm 12mm;
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.4);
+    }
+
+    /* Configuración de Impresión para PDF Exacto de 2 Páginas */
+    @media print {
+      @page {
+        size: letter portrait;
+        margin: 0;
+      }
+      body {
+        background: none;
+        margin: 0;
+        padding: 0;
+      }
+      .screen-wrapper {
+        margin: 0;
+        gap: 0;
+      }
+      .brochure-page {
+        margin: 0;
+        box-shadow: none;
+        page-break-after: always;
+        break-after: page;
+        height: 279.4mm;
+        max-height: 279.4mm;
+        overflow: hidden;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+      }
+      .no-print {
+        display: none !important;
+      }
+    }
+
+    /* Botón flotante para generar/imprimir PDF */
+    .print-bar {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      z-index: 100;
+      display: flex;
+      gap: 12px;
+    }
+    .btn-pdf {
+      background: #2563eb;
+      color: #ffffff;
+      font-weight: 700;
+      font-size: 14px;
+      padding: 12px 24px;
+      border-radius: 9999px;
+      border: none;
+      cursor: pointer;
+      box-shadow: 0 10px 25px -5px rgba(37, 99, 235, 0.5);
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      transition: all 0.2s ease;
+    }
+    .btn-pdf:hover {
+      background: #1d4ed8;
+      transform: translateY(-2px);
+      box-shadow: 0 15px 30px -5px rgba(37, 99, 235, 0.7);
+    }
+
+    /* Paleta de colores */
+    .text-brand-blue { color: #2563eb; }
+    .bg-brand-blue { background-color: #2563eb; }
+    .text-slate-900 { color: #0f172a; }
+    .text-slate-600 { color: #475569; }
+    .text-slate-500 { color: #64748b; }
+    .bg-slate-50 { background-color: #f8fafc; }
+    .bg-slate-900 { background-color: #0f172a; }
+
+    /* Semáforo accents */
+    .badge-green { background: #ecfdf5; color: #059669; border: 1px solid #a7f3d0; }
+    .badge-yellow { background: #fffbeb; color: #d97706; border: 1px solid #fde68a; }
+    .badge-red { background: #fff1f2; color: #e11d48; border: 1px solid #fecdd3; }
+
+    /* Grid & Flex */
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+    .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+
+    /* Card styling */
+    .card {
+      background: #ffffff;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      padding: 9px 11px;
+    }
+    .card-dark {
+      background: #0f172a;
+      color: #ffffff;
+      border-radius: 8px;
+      padding: 10px 12px;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Barra flotante sólo visible en pantalla -->
+  <div class="print-bar no-print">
+    <button onclick="window.print()" class="btn-pdf">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M6 9V2h12v7M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/>
+        <path d="M6 14h12v8H6z"/>
+      </svg>
+      Descargar en Formato PDF
+    </button>
+  </div>
+
+  <div class="screen-wrapper">
+
+    <!-- ======================================================== -->
+    <!--                     PÁGINA 1                             -->
+    <!-- ======================================================== -->
+    <div class="brochure-page">
+      
+      <!-- TOP HEADER -->
+      <div style="border-bottom: 2px solid #2563eb; padding-bottom: 8px;">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <div style="background: #0f172a; border-radius: 8px; padding: 6px 10px; display: flex; align-items: center; gap: 6px;">
+              <span style="display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: #10b981;"></span>
+              <span style="display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: #f59e0b;"></span>
+              <span style="display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: #f43f5e;"></span>
+              <span style="color: #ffffff; font-weight: 900; font-size: 15px; letter-spacing: -0.5px; margin-left: 4px;">SEMÁFORO CÍVICO</span>
+            </div>
+            <span style="background: #eff6ff; color: #2563eb; font-size: 10px; font-weight: 700; padding: 3px 8px; border-radius: 999px; border: 1px solid #bfdbfe; text-transform: uppercase;">
+              Software de Inteligencia & Fiscalización
+            </span>
+          </div>
+          <div style="text-align: right;">
+            <span style="font-size: 11px; font-weight: 800; color: #0f172a; text-transform: uppercase; letter-spacing: 0.5px;">Jupiter Soluciones</span>
+            <span style="display: block; font-size: 9px; color: #64748b; font-weight: 500;">Tecnología para la Transparencia Pública</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- HERO BANNER -->
+      <div style="background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); border-radius: 10px; padding: 13px 16px; color: #ffffff; margin-top: 8px;">
+        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
+          <span style="background: #2563eb; color: #ffffff; font-size: 9px; font-weight: 800; padding: 2px 7px; border-radius: 4px; text-transform: uppercase;">Vigencia 2026</span>
+          <span style="color: #94a3b8; font-size: 10px; font-weight: 500;">Integrado a Datos Abiertos Colombia (SECOP II)</span>
+        </div>
+        <h1 style="font-size: 20px; font-weight: 900; line-height: 1.2; letter-spacing: -0.5px; margin-bottom: 5px;">
+          Audite y Detecte Riesgos en Contratos Públicos de Colombia en Segundos
+        </h1>
+        <p style="font-size: 10.5px; line-height: 1.4; color: #cbd5e1; max-width: 95%;">
+          Plataforma de analítica forense que procesa millones de registros del SECOP II para revelar fraccionamiento de contratos, concentración en adjudicaciones directas, sobrecostos y anomalías en <strong>cualquier departamento, municipio o entidad descentralizada</strong> del país.
+        </p>
+      </div>
+
+      <!-- CIFRAS DE IMPACTO (4 STATS) -->
+      <div class="grid-4" style="margin-top: 6px;">
+        <div class="card" style="text-align: center; border-left: 3px solid #2563eb; padding: 6px 4px;">
+          <div style="font-size: 17px; font-weight: 900; color: #2563eb; line-height: 1;">32 Dptos</div>
+          <div style="font-size: 8.5px; color: #64748b; font-weight: 600; margin-top: 2px;">Cobertura Nacional 100%</div>
+        </div>
+        <div class="card" style="text-align: center; border-left: 3px solid #10b981; padding: 6px 4px;">
+          <div style="font-size: 17px; font-weight: 900; color: #059669; line-height: 1;">+1.100</div>
+          <div style="font-size: 8.5px; color: #64748b; font-weight: 600; margin-top: 2px;">Municipios Auditables</div>
+        </div>
+        <div class="card" style="text-align: center; border-left: 3px solid #f59e0b; padding: 6px 4px;">
+          <div style="font-size: 17px; font-weight: 900; color: #d97706; line-height: 1;">&lt; 2 Seg</div>
+          <div style="font-size: 8.5px; color: #64748b; font-weight: 600; margin-top: 2px;">Tiempo de Respuesta</div>
+        </div>
+        <div class="card" style="text-align: center; border-left: 3px solid #f43f5e; padding: 6px 4px;">
+          <div style="font-size: 17px; font-weight: 900; color: #e11d48; line-height: 1;">SMMLV 2026</div>
+          <div style="font-size: 8.5px; color: #64748b; font-weight: 600; margin-top: 2px;">Topes Legales Calibrados</div>
+        </div>
+      </div>
+
+      <!-- SECCIÓN: LOS 4 PILARES TECNOLÓGICOS -->
+      <div style="margin-top: 6px;">
+        <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 5px;">
+          <div style="width: 4px; height: 13px; background: #2563eb; border-radius: 2px;"></div>
+          <h2 style="font-size: 12.5px; font-weight: 800; color: #0f172a; text-transform: uppercase; letter-spacing: 0.3px;">
+            Ventajas Tecnológicas Exclusivas para la Investigación
+          </h2>
+        </div>
+
+        <div class="grid-2">
+          
+          <!-- Pilar 1 -->
+          <div class="card" style="background: #f8fafc;">
+            <div style="display: flex; align-items: center; gap: 7px; margin-bottom: 3px;">
+              <div style="background: #dbeafe; color: #1e40af; width: 22px; height: 22px; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 11px;">1</div>
+              <h3 style="font-size: 10.5px; font-weight: 700; color: #0f172a;">Semáforo Algorítmico de Riesgo</h3>
+            </div>
+            <p style="font-size: 9px; color: #475569; line-height: 1.35;">
+              Evalúa instantáneamente cada contrato bajo 3 niveles: <strong>Verde</strong> (conforme a topes y con pluralidad de oferentes), <strong>Amarillo</strong> (alerta preventiva por cuantía límite) y <strong>Rojo</strong> (riesgo crítico por contratación directa indebida o plazos sospechosos).
+            </p>
+          </div>
+
+          <!-- Pilar 2 -->
+          <div class="card" style="background: #f8fafc;">
+            <div style="display: flex; align-items: center; gap: 7px; margin-bottom: 3px;">
+              <div style="background: #fee2e2; color: #991b1b; width: 22px; height: 22px; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 11px;">2</div>
+              <h3 style="font-size: 10.5px; font-weight: 700; color: #0f172a;">Detector de Fraccionamiento de Contratos</h3>
+            </div>
+            <p style="font-size: 9px; color: #475569; line-height: 1.35;">
+              Algoritmo especializado que rastrea contratos suscritos con el mismo contratista en ventanas de tiempo cortas con objetos contractuales similares, revelando prácticas diseñadas para eludir licitaciones públicas.
+            </p>
+          </div>
+
+          <!-- Pilar 3 -->
+          <div class="card" style="background: #f8fafc;">
+            <div style="display: flex; align-items: center; gap: 7px; margin-bottom: 3px;">
+              <div style="background: #fef3c7; color: #92400e; width: 22px; height: 22px; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 11px;">3</div>
+              <h3 style="font-size: 10.5px; font-weight: 700; color: #0f172a;">Radiografía Completa de Contratistas</h3>
+            </div>
+            <p style="font-size: 9px; color: #475569; line-height: 1.35;">
+              Búsqueda transversal por NIT o Razón Social. Expone el monto acumulado adjudicado a una persona natural o jurídica en múltiples municipios o departamentos, su tasa de contratación directa y sus entidades frecuentes.
+            </p>
+          </div>
+
+          <!-- Pilar 4 -->
+          <div class="card" style="background: #f8fafc;">
+            <div style="display: flex; align-items: center; gap: 7px; margin-bottom: 3px;">
+              <div style="background: #e0e7ff; color: #3730a3; width: 22px; height: 22px; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 11px;">4</div>
+              <h3 style="font-size: 10.5px; font-weight: 700; color: #0f172a;">Módulo de Entidades Descentralizadas</h3>
+            </div>
+            <p style="font-size: 9px; color: #475569; line-height: 1.35;">
+              Audita con un solo clic entidades de alta ejecución presupuestal frecuentemente invisibles: <strong>E.S.E. Hospitales Públicos, SENA, ICA, Agencia Nacional de Tierras (ANT), Institutos de Deporte (INDER) y AUNAP</strong>.
+            </p>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- MATRIZ COMPARATIVA DE VALOR -->
+      <div style="margin-top: 6px;">
+        <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 5px;">
+          <div style="width: 4px; height: 13px; background: #059669; border-radius: 2px;"></div>
+          <h2 style="font-size: 12.5px; font-weight: 800; color: #0f172a; text-transform: uppercase; letter-spacing: 0.3px;">
+            Comparativa de Eficiencia Operativa
+          </h2>
+        </div>
+
+        <table style="width: 100%; border-collapse: collapse; font-size: 8.5px; text-align: left;">
+          <thead>
+            <tr style="background: #0f172a; color: #ffffff;">
+              <th style="padding: 5px 8px; border-radius: 4px 0 0 0;">Criterio de Investigación</th>
+              <th style="padding: 5px 8px; color: #94a3b8;">SECOP II Tradicional</th>
+              <th style="padding: 5px 8px; background: #2563eb; color: #ffffff; border-radius: 0 4px 0 0; font-weight: 800;">Con Semáforo Cívico</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr style="border-bottom: 1px solid #e2e8f0; background: #ffffff;">
+              <td style="padding: 4px 8px; font-weight: 700; color: #1e293b;">Búsqueda por Municipio</td>
+              <td style="padding: 4px 8px; color: #64748b;">Filtros manuales dispersos, múltiples interfaces</td>
+              <td style="padding: 4px 8px; font-weight: 700; color: #059669;">Instantánea, 1 clic, consolida alcaldía y entidades</td>
+            </tr>
+            <tr style="border-bottom: 1px solid #e2e8f0; background: #f8fafc;">
+              <td style="padding: 4px 8px; font-weight: 700; color: #1e293b;">Detección de Fraccionamiento</td>
+              <td style="padding: 4px 8px; color: #64748b;">Requiere exportar a Excel y cruce manual (días)</td>
+              <td style="padding: 4px 8px; font-weight: 700; color: #059669;">Automática en tiempo real con matriz de evidencia</td>
+            </tr>
+            <tr style="border-bottom: 1px solid #e2e8f0; background: #ffffff;">
+              <td style="padding: 4px 8px; font-weight: 700; color: #1e293b;">Alerta de Topes Legales</td>
+              <td style="padding: 4px 8px; color: #64748b;">Inexistente; cálculo manual contra el SMMLV</td>
+              <td style="padding: 4px 8px; font-weight: 700; color: #059669;">Calibrado a valores 2026 por categoría municipal</td>
+            </tr>
+            <tr style="background: #f8fafc;">
+              <td style="padding: 4px 8px; font-weight: 700; color: #1e293b;">Auditoría de Hospitales y E.S.E.</td>
+              <td style="padding: 4px 8px; color: #64748b;">Complejo; no siempre coinciden ciudad y razón social</td>
+              <td style="padding: 4px 8px; font-weight: 700; color: #059669;">Filtro unificado directo sin desbordes intermunicipales</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- FOOTER PAGINA 1 -->
+      <div style="border-top: 1px solid #cbd5e1; padding-top: 5px; display: flex; justify-content: space-between; align-items: center; font-size: 8.5px; color: #64748b;">
+        <span>Semáforo Cívico — Documento Corporativo Confidencial — Jupiter Soluciones</span>
+        <span style="font-weight: 700; color: #0f172a;">Página 1 de 2</span>
+      </div>
+
+    </div>
+
+
+    <!-- ======================================================== -->
+    <!--                     PÁGINA 2                             -->
+    <!-- ======================================================== -->
+    <div class="brochure-page">
+
+      <!-- HEADER PAGINA 2 -->
+      <div style="border-bottom: 2px solid #2563eb; padding-bottom: 8px;">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <div style="background: #0f172a; border-radius: 6px; padding: 4px 8px; display: flex; align-items: center; gap: 4px;">
+              <span style="display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: #10b981;"></span>
+              <span style="display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: #f59e0b;"></span>
+              <span style="display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: #f43f5e;"></span>
+              <span style="color: #ffffff; font-weight: 900; font-size: 13px;">SEMÁFORO CÍVICO</span>
+            </div>
+            <span style="font-size: 10px; font-weight: 700; color: #475569;">Casos de Uso, Retorno de Inversión y Contacto Ejecutivo</span>
+          </div>
+          <span style="font-size: 9.5px; font-weight: 800; color: #2563eb; text-transform: uppercase;">Jupiter Soluciones</span>
+        </div>
+      </div>
+
+      <!-- SECCIÓN: CASOS DE USO ESTRATÉGICOS -->
+      <div style="margin-top: 7px;">
+        <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 5px;">
+          <div style="width: 4px; height: 13px; background: #2563eb; border-radius: 2px;"></div>
+          <h2 style="font-size: 12.5px; font-weight: 800; color: #0f172a; text-transform: uppercase; letter-spacing: 0.3px;">
+            ¿Quiénes Multiplican su Capacidad con Semáforo Cívico?
+          </h2>
+        </div>
+
+        <div class="grid-2">
+          
+          <div class="card" style="border-left: 3px solid #0284c7;">
+            <div style="font-size: 10.5px; font-weight: 800; color: #0369a1; margin-bottom: 2px;">
+              📰 Medios de Comunicación & Periodismo de Investigación
+            </div>
+            <p style="font-size: 8.8px; color: #475569; line-height: 1.35;">
+              Sustente investigaciones periodísticas en minutos con datos crudos, fechas de firma exactas, cuantías y enlaces directos al expediente del proceso contractual.
+            </p>
+          </div>
+
+          <div class="card" style="border-left: 3px solid #7c3aed;">
+            <div style="font-size: 10.5px; font-weight: 800; color: #6d28d9; margin-bottom: 2px;">
+              ⚖️ Firmas de Abogados & Asesores de Control Interno
+            </div>
+            <p style="font-size: 8.8px; color: #475569; line-height: 1.35;">
+              Auditoría preventiva y litigiosa contra el régimen disciplinario y fiscal. Verificación expedita de incompatibilidades, inhabilidades y fraccionamientos.
+            </p>
+          </div>
+
+          <div class="card" style="border-left: 3px solid #059669;">
+            <div style="font-size: 10.5px; font-weight: 800; color: #047857; margin-bottom: 2px;">
+              🏢 Empresas Contratistas & Licitadores Privados
+            </div>
+            <p style="font-size: 8.8px; color: #475569; line-height: 1.35;">
+              Inteligencia competitiva: conozca qué empresas ganan en cada entidad, qué modalidades se emplean y cuál es el presupuesto asignado para anticipar oportunidades.
+            </p>
+          </div>
+
+          <div class="card" style="border-left: 3px solid #ea580c;">
+            <div style="font-size: 10.5px; font-weight: 800; color: #c2410c; margin-bottom: 2px;">
+              🏛️ Veedurías, Concejos Municipales & Asambleas
+            </div>
+            <p style="font-size: 8.8px; color: #475569; line-height: 1.35;">
+              Herramienta indispensable para debates de control político fundados en evidencias matemáticas irrefutables y métricas de concentración de contratación directa.
+            </p>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- SECCIÓN: MOTOR FORENSE FAEPP -->
+      <div style="margin-top: 7px;">
+        <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 5px;">
+          <div style="width: 4px; height: 13px; background: #f43f5e; border-radius: 2px;"></div>
+          <h2 style="font-size: 12.5px; font-weight: 800; color: #0f172a; text-transform: uppercase; letter-spacing: 0.3px;">
+            Motor Forense FAEPP: Detección Temprana de Hallazgos
+          </h2>
+        </div>
+
+        <div class="card-dark">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+            <span style="font-size: 10.5px; font-weight: 800; color: #38bdf8; text-transform: uppercase;">Matriz de Hallazgos HAL-FORENSIC</span>
+            <span style="font-size: 8.5px; background: rgba(56, 189, 248, 0.2); color: #38bdf8; padding: 2px 6px; border-radius: 4px; font-weight: 700;">Auditoría Continua</span>
+          </div>
+          <p style="font-size: 9px; color: #cbd5e1; line-height: 1.35; margin-bottom: 6px;">
+            El motor de evaluación analiza en segundo plano cada ordenación del gasto, clasificando patrones anómalos que configuran presuntas faltas contra los principios de la función administrativa (Art. 209 C.P.):
+          </p>
+          <div class="grid-3" style="gap: 6px;">
+            <div style="background: rgba(255, 255, 255, 0.05); padding: 5px 7px; border-radius: 6px; border-left: 2px solid #10b981;">
+              <div style="font-size: 8.5px; font-weight: 800; color: #34d399;">Pluralidad de Oferentes</div>
+              <div style="font-size: 7.8px; color: #94a3b8;">Verifica si los procesos licitatorios reciben competencia real o propuestas únicas.</div>
+            </div>
+            <div style="background: rgba(255, 255, 255, 0.05); padding: 5px 7px; border-radius: 6px; border-left: 2px solid #f59e0b;">
+              <div style="font-size: 8.5px; font-weight: 800; color: #fbbf24;">Límites de Mínima Cuantía</div>
+              <div style="font-size: 7.8px; color: #94a3b8;">Monitorea contratos que rondan el 98%-99% del tope legal de contratación directa.</div>
+            </div>
+            <div style="background: rgba(255, 255, 255, 0.05); padding: 5px 7px; border-radius: 6px; border-left: 2px solid #f43f5e;">
+              <div style="font-size: 8.5px; font-weight: 800; color: #fb7185;">Concentración Contractual</div>
+              <div style="font-size: 7.8px; color: #94a3b8;">Identifica contratistas que absorben más del 30% del presupuesto de una entidad.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- SECCIÓN: MODELO DE IMPLEMENTACIÓN & LICENCIAMIENTO -->
+      <div style="margin-top: 7px;">
+        <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 5px;">
+          <div style="width: 4px; height: 13px; background: #0f172a; border-radius: 2px;"></div>
+          <h2 style="font-size: 12.5px; font-weight: 800; color: #0f172a; text-transform: uppercase; letter-spacing: 0.3px;">
+            Modalidades de Acceso Corporativo & Consultoría
+          </h2>
+        </div>
+
+        <div class="grid-3">
+          <div class="card" style="text-align: center;">
+            <div style="font-size: 10px; font-weight: 800; color: #0f172a; margin-bottom: 2px;">Licencia Individual / Pro</div>
+            <div style="font-size: 8px; color: #64748b; line-height: 1.3;">Para investigadores, periodistas y veedores independientes. Acceso completo e ilimitado a consultas y filtros.</div>
+          </div>
+          <div class="card" style="text-align: center; border: 1.5px solid #2563eb; background: #eff6ff;">
+            <div style="font-size: 10px; font-weight: 800; color: #1d4ed8; margin-bottom: 2px;">Plan Corporativo / Firmas</div>
+            <div style="font-size: 8px; color: #1e40af; line-height: 1.3;">Para firmas legales, constructoras y gremios. Múltiples accesos, exportación forense y soporte prioritario.</div>
+          </div>
+          <div class="card" style="text-align: center;">
+            <div style="font-size: 10px; font-weight: 800; color: #0f172a; margin-bottom: 2px;">Consultoría & Informes a Medida</div>
+            <div style="font-size: 8px; color: #64748b; line-height: 1.3;">Elaboración de informes periciales y auditorías territoriales personalizadas por encargo para entidades o corporaciones.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- TARJETA EJECUTIVA DE CONTACTO COMERCIAL (EXCLUSIVAMENTE DATOS DE PEDRO ANTONIO HOYOS Y JUPITER SOLUCIONES) -->
+      <div style="background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); border-radius: 10px; padding: 14px 18px; color: #ffffff; margin-top: 8px; border: 1px solid rgba(255, 255, 255, 0.1);">
+        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255, 255, 255, 0.15); padding-bottom: 8px; margin-bottom: 10px;">
+          <div>
+            <span style="font-size: 9px; font-weight: 700; color: #38bdf8; text-transform: uppercase; letter-spacing: 0.8px;">Contacto Comercial & Demostraciones</span>
+            <div style="font-size: 14px; font-weight: 900; color: #ffffff;">Agende su Presentación Corporativa</div>
+          </div>
+          <div style="text-align: right;">
+            <span style="background: #2563eb; color: #ffffff; font-size: 9px; font-weight: 800; padding: 3px 8px; border-radius: 4px; text-transform: uppercase;">Jupiter Soluciones</span>
+          </div>
+        </div>
+
+        <div class="grid-3" style="align-items: center; gap: 10px;">
+          
+          <!-- Representante -->
+          <div>
+            <div style="font-size: 8px; color: #94a3b8; text-transform: uppercase; font-weight: 600;">Dirección Ejecutiva</div>
+            <div style="font-size: 12px; font-weight: 800; color: #ffffff; margin-top: 1px;">Pedro Antonio Hoyos</div>
+            <div style="font-size: 8.5px; color: #38bdf8; font-weight: 600;">CEO — Jupiter Soluciones</div>
+          </div>
+
+          <!-- WhatsApp -->
+          <div>
+            <div style="font-size: 8px; color: #94a3b8; text-transform: uppercase; font-weight: 600;">Atención Inmediata WhatsApp</div>
+            <div style="font-size: 12px; font-weight: 800; color: #34d399; margin-top: 1px;">
+              +57 302 374 8165
+            </div>
+            <div style="font-size: 8px; color: #94a3b8;">Atención directa a clientes y firmas</div>
+          </div>
+
+          <!-- Correo Electrónico -->
+          <div>
+            <div style="font-size: 8px; color: #94a3b8; text-transform: uppercase; font-weight: 600;">Correo Electrónico</div>
+            <div style="font-size: 11px; font-weight: 800; color: #ffffff; margin-top: 1px; word-break: break-all;">
+              jupiter.soluciones@gmail.com
+            </div>
+            <div style="font-size: 8px; color: #94a3b8;">Propuestas y cotizaciones formales</div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- FOOTER PAGINA 2 -->
+      <div style="border-top: 1px solid #cbd5e1; padding-top: 5px; display: flex; justify-content: space-between; align-items: center; font-size: 8.5px; color: #64748b;">
+        <span>Semáforo Cívico es una marca y desarrollo tecnológico de Jupiter Soluciones — Todos los derechos reservados.</span>
+        <span style="font-weight: 700; color: #0f172a;">Página 2 de 2</span>
+      </div>
+
+    </div>
+
+  </div>
+
+</body>
+</html>

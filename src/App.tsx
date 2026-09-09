@@ -682,6 +682,24 @@ const App: React.FC = () => {
           </a>{' '}
           - Datos bajo licencia CC BY-SA 4.0
         </p>
+        <div className="mt-2.5 flex items-center justify-center gap-3 text-xs flex-wrap">
+          <a
+            href="/Brochure_Semaforo_Civico.pdf"
+            download="Brochure_Semaforo_Civico.pdf"
+            className="inline-flex items-center gap-1.5 text-blue-600 hover:text-blue-800 font-semibold bg-blue-50/80 hover:bg-blue-100 px-3 py-1 rounded-full border border-blue-200 transition-colors"
+          >
+            <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+              <polyline points="7 10 12 15 17 10" />
+              <line x1="12" y1="15" x2="12" y2="3" />
+            </svg>
+            Descargar Portafolio Comercial (PDF)
+          </a>
+          <span className="text-slate-300 hidden sm:inline">•</span>
+          <span className="text-slate-400">
+            Jupiter Soluciones &mdash; CEO Pedro Antonio Hoyos
+          </span>
+        </div>
       </footer>
 
       {/* MODALES DEL SISTEMA */}
