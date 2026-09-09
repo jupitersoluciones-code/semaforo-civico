@@ -42,12 +42,13 @@ const DEPT_ALIASES: Record<string, string[]> = {
 };
 
 const DECENTRALIZED_PATTERNS: Record<string, string[]> = {
-  ese_hospital: ['HOSPITAL', 'EMPRESA SOCIAL DEL ESTADO', 'E.S.E.'],
+  // Sincronizado con DECENTRALIZED_ENTITIES en src/utils/constants.ts
+  ese_hospital: ['HOSPITAL', 'EMPRESA SOCIAL DEL ESTADO', 'E.S.E.', 'E.S.E', 'ESE', 'CAMU', 'CENTRO DE SALUD'],
   sena: ['SERVICIO NACIONAL DE APRENDIZAJE', 'SENA'],
   ica: ['INSTITUTO COLOMBIANO AGROPECUARIO', 'ICA'],
-  ant: ['AGENCIA NACIONAL DE TIERRAS', 'ANT'],
+  ant: ['AGENCIA NACIONAL DE TIERRAS', 'ANT', 'AGENCIA DE TIERRAS'],
   inder: ['INDER', 'IMDER', 'INDEPORTES', 'INSTITUTO DE DEPORTE', 'INSTITUTO MUNICIPAL DE DEPORTE'],
-  aunap: ['AUNAP', 'AUTORIDAD NACIONAL DE ACUICULTURA', 'UNAP'],
+  aunap: ['AUNAP', 'AUTORIDAD NACIONAL DE ACUICULTURA', 'UNAP', 'AUTORIDAD ACUICULTURA'],
 };
 
 export default async function handler(req: any, res: any) {
@@ -219,8 +220,15 @@ export default async function handler(req: any, res: any) {
 
     const data = await response.json();
 
-    // Cache-Control para CDN de Vercel (Edge Cache por 1 hora, revalidación en segundo plano)
-    res.setHeader('Cache-Control', 's-maxage=3600, stale-while-revalidate=86400');
+    // Si la respuesta es un array vacío, no cachear en Vercel Edge (el dato puede mejorar al reintentar)
+    const isEmptyResult = Array.isArray(data) && data.length === 0;
+    if (isEmptyResult) {
+      console.log(`[/api/secop] Resultado vacío para WHERE: ${params.get('$where') || '(sin filtro)'}`);
+      res.setHeader('Cache-Control', 'no-store');
+    } else {
+      // Cache-Control para CDN de Vercel (Edge Cache por 1 hora, revalidación en segundo plano)
+      res.setHeader('Cache-Control', 's-maxage=3600, stale-while-revalidate=86400');
+    }
     return res.status(200).json(data);
   } catch (error: any) {
     console.error('Error en proxy /api/secop:', error);

@@ -50,7 +50,14 @@ export async function fetchWithCache<T>(
   options: RequestInit = {},
 ): Promise<T> {
   const cached = getFromCache<T>(cacheKey);
-  if (cached) return cached;
+  if (cached !== null) {
+    // No retornar caché de arrays vacíos — podrían ser resultados fallidos anteriores
+    if (Array.isArray(cached) && (cached as unknown[]).length === 0) {
+      // Ignorar caché vacía y forzar nueva consulta
+    } else {
+      return cached;
+    }
+  }
 
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 30000);
@@ -70,7 +77,11 @@ export async function fetchWithCache<T>(
     }
 
     const data: T = await response.json();
-    setInCache(cacheKey, data);
+    // Solo cachear si el resultado tiene contenido real (no arrays vacíos)
+    const isEmpty = Array.isArray(data) && (data as unknown[]).length === 0;
+    if (!isEmpty) {
+      setInCache(cacheKey, data);
+    }
     return data;
   } finally {
     clearTimeout(timeoutId);
@@ -104,4 +115,13 @@ export async function fetchJson<T>(url: string, options: RequestInit = {}): Prom
 export function clearCache(): void {
   const keys = Object.keys(localStorage).filter((k) => k.startsWith(CACHE_PREFIX));
   keys.forEach((k) => localStorage.removeItem(k));
+}
+
+/** Invalida una clave específica del caché (útil para forzar reintento tras resultado vacío) */
+export function clearCacheForKey(cacheKey: string): void {
+  try {
+    localStorage.removeItem(CACHE_PREFIX + cacheKey);
+  } catch {
+    // Ignorar si localStorage no está disponible
+  }
 }

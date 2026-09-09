@@ -3,7 +3,7 @@ import {
   buildSoqlWhereClause,
   filterContractsByDecentralizedEntity,
 } from '../services/datosGovService';
-import { DECENTRALIZED_ENTITIES } from '../utils/constants';
+import { DECENTRALIZED_ENTITIES, MUNICIPALITIES } from '../utils/constants';
 import type { RealContract } from '../utils/types';
 
 describe('Auditoría e Integración de Entidades Descentralizadas', () => {
@@ -16,6 +16,46 @@ describe('Auditoría e Integración de Entidades Descentralizadas', () => {
     expect(ids).toContain('inder');
     expect(ids).toContain('aunap');
     expect(DECENTRALIZED_ENTITIES.length).toBe(6);
+  });
+
+  it('ese_hospital incluye patrones ampliados (ESE, CAMU, CENTRO DE SALUD) reales de SECOP II', () => {
+    const hospitalEntity = DECENTRALIZED_ENTITIES.find((e) => e.id === 'ese_hospital')!;
+    expect(hospitalEntity.patterns).toContain('ESE');
+    expect(hospitalEntity.patterns).toContain('CAMU');
+    expect(hospitalEntity.patterns).toContain('CENTRO DE SALUD');
+    expect(hospitalEntity.patterns).toContain('E.S.E');
+    expect(hospitalEntity.patterns).toContain('HOSPITAL');
+  });
+
+  it('ant incluye el patrón abreviado AGENCIA DE TIERRAS', () => {
+    const antEntity = DECENTRALIZED_ENTITIES.find((e) => e.id === 'ant')!;
+    expect(antEntity.patterns).toContain('AGENCIA DE TIERRAS');
+  });
+
+  it('aunap incluye el patrón reducido AUTORIDAD ACUICULTURA', () => {
+    const aunapEntity = DECENTRALIZED_ENTITIES.find((e) => e.id === 'aunap')!;
+    expect(aunapEntity.patterns).toContain('AUTORIDAD ACUICULTURA');
+  });
+
+  it('Santander (68) tiene municipios cargados incluyendo Bucaramanga y Barrancabermeja', () => {
+    const santanderMunis = MUNICIPALITIES.filter((m) => m.departmentCode === '68');
+    expect(santanderMunis.length).toBeGreaterThanOrEqual(87);
+    const names = santanderMunis.map((m) => m.name);
+    expect(names).toContain('Bucaramanga');
+    expect(names).toContain('Barrancabermeja');
+    expect(names).toContain('Floridablanca');
+    expect(names).toContain('Girón');
+    expect(names).toContain('Piedecuesta');
+  });
+
+  it('Norte de Santander (54) tiene municipios cargados incluyendo Cúcuta y Ocaña', () => {
+    const norteMunis = MUNICIPALITIES.filter((m) => m.departmentCode === '54');
+    expect(norteMunis.length).toBeGreaterThanOrEqual(40);
+    const names = norteMunis.map((m) => m.name);
+    expect(names).toContain('Cúcuta');
+    expect(names).toContain('Ocaña');
+    expect(names).toContain('Pamplona');
+    expect(names).toContain('Tibú');
   });
 
   describe('Construcción de cláusulas SoQL con filtro de entidad descentralizada', () => {
@@ -123,6 +163,28 @@ describe('Auditoría e Integración de Entidades Descentralizadas', () => {
       const filtered = filterContractsByDecentralizedEntity(mockContracts, 'ese_hospital');
       expect(filtered.length).toBe(1);
       expect(filtered[0].id_contrato).toBe('2');
+    });
+
+    it('filtra contratos con entidad CAMU (variante real SECOP II de hospital)', () => {
+      const camuContract: RealContract = {
+        id_contrato: 'CAMU-1',
+        nombre_entidad: 'CAMU TIERRALTA',
+        objeto_del_contrato: 'Suministro de medicamentos CAMU',
+        valor_del_contrato: '45000000',
+      };
+      const filtered = filterContractsByDecentralizedEntity([...mockContracts, camuContract], 'ese_hospital');
+      expect(filtered.some((c) => c.id_contrato === 'CAMU-1')).toBe(true);
+    });
+
+    it('filtra contratos con entidad CENTRO DE SALUD (variante real SECOP II)', () => {
+      const centroContract: RealContract = {
+        id_contrato: 'CS-1',
+        nombre_entidad: 'CENTRO DE SALUD DE SURATÁ',
+        objeto_del_contrato: 'Dotación médica',
+        valor_del_contrato: '20000000',
+      };
+      const filtered = filterContractsByDecentralizedEntity([...mockContracts, centroContract], 'ese_hospital');
+      expect(filtered.some((c) => c.id_contrato === 'CS-1')).toBe(true);
     });
 
     it('identifica contratos de salud o PIC adjudicados a hospitales por alcaldías municipales', () => {

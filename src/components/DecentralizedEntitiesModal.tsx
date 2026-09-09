@@ -1,7 +1,8 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import type { RealContract, Contract, Department, Municipality, DecentralizedEntityId } from '../utils/types';
 import { DECENTRALIZED_ENTITIES } from '../utils/constants';
-import { fetchContractsByDecentralizedEntity, fetchContractsByContractor } from '../services/datosGovService';
+import { fetchContractsByDecentralizedEntity, fetchContractsByContractor, fetchMunicipalitiesByDepartment } from '../services/datosGovService';
+import { clearCacheForKey } from '../services/apiClient';
 import { analyzeRealContracts, getSemaphoreStats } from '../services/semaforoService';
 import { formatCurrency, formatDate } from '../utils/formatters';
 import {
@@ -70,6 +71,10 @@ const DecentralizedEntitiesModal: React.FC<Props> = ({
   const [isContractorLoading, setIsContractorLoading] = useState(false);
   const [contractorError, setContractorError] = useState<string | null>(null);
 
+  // Estado interno de municipios — se recarga cuando cambia el departamento seleccionado dentro del modal
+  const [localMunicipalities, setLocalMunicipalities] = useState<Municipality[]>([]);
+  const [isLoadingMunis, setIsLoadingMunis] = useState(false);
+
   useEffect(() => {
     if (isOpen) {
       if (initialDepartment) setSelectedDept(initialDepartment);
@@ -80,31 +85,46 @@ const DecentralizedEntitiesModal: React.FC<Props> = ({
     }
   }, [isOpen, initialDepartment, initialMunicipality, initialEntityId]);
 
+  // Carga municipios cuando cambia el departamento seleccionado DENTRO del modal
   useEffect(() => {
-    if (!isOpen || !selectedDept) return;
+    if (!selectedDept) {
+      setLocalMunicipalities([]);
+      return;
+    }
+    let active = true;
+    setIsLoadingMunis(true);
+    fetchMunicipalitiesByDepartment(selectedDept).then((muns) => {
+      if (active) {
+        setLocalMunicipalities(muns);
+        setIsLoadingMunis(false);
+      }
+    });
+    return () => { active = false; };
+  }, [selectedDept]);
 
-    let isMounted = true;
+  // Carga contratos de la entidad descentralizada seleccionada
+  const loadContracts = useCallback((entityId: DecentralizedEntityId, deptCode: string, munCode?: string) => {
+    if (!deptCode) return;
     setIsLoading(true);
     setError(null);
     setContracts([]);
-
-    fetchContractsByDecentralizedEntity(selectedEntity, selectedDept, selectedMun, 150)
+    fetchContractsByDecentralizedEntity(entityId, deptCode, munCode, 150)
       .then((data) => {
-        if (isMounted) {
-          setContracts(data);
-          setIsLoading(false);
-        }
+        setContracts(data);
+        setIsLoading(false);
       })
       .catch((err) => {
-        if (isMounted) {
-          console.error('Error cargando contratos de entidad descentralizada:', err);
-          setError('No fue posible consultar Datos Abiertos para esta entidad en este momento.');
-          setIsLoading(false);
-        }
+        console.error('Error cargando contratos de entidad descentralizada:', err);
+        setError('No fue posible consultar Datos Abiertos para esta entidad en este momento.');
+        setIsLoading(false);
       });
+  }, []);
 
-    return () => { isMounted = false; };
-  }, [isOpen, selectedEntity, selectedDept, selectedMun]);
+  // Dispara la carga de contratos al abrir el modal o cambiar filtros clave
+  useEffect(() => {
+    if (!isOpen || !selectedDept) return;
+    loadContracts(selectedEntity, selectedDept, selectedMun || undefined);
+  }, [isOpen, selectedEntity, selectedDept, selectedMun, loadContracts]);
 
   const handleSearchContractor = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
@@ -133,6 +153,19 @@ const DecentralizedEntitiesModal: React.FC<Props> = ({
     setContractorContracts([]);
     setContractorError(null);
     setSearchTerm('');
+  };
+
+  /** Fuerza reconsulta limpiando la caché para la combinación actual */
+  const handleRetry = () => {
+    // Limpiar las claves de caché conocidas para esta combinación
+    const keysToInvalidate = [
+      `decent_v6_strict_mun_${selectedEntity}_${selectedDept}_${selectedMun}_150`,
+      `decent_v6_dept_${selectedEntity}_${selectedDept}_150`,
+      `decent_v6_nat_${selectedEntity}_150`,
+    ];
+    keysToInvalidate.forEach(clearCacheForKey);
+    setError(null);
+    loadContracts(selectedEntity, selectedDept, selectedMun || undefined);
   };
 
   const currentEntityDef = useMemo(
@@ -259,11 +292,11 @@ const DecentralizedEntitiesModal: React.FC<Props> = ({
           <select
             value={selectedMun}
             onChange={(e) => { setSelectedMun(e.target.value); handleClearContractorSearch(); }}
-            disabled={!selectedDept}
+            disabled={!selectedDept || isLoadingMunis}
             className="form-select text-xs py-1.5 max-w-[200px]"
           >
-            <option value="">Todo el departamento</option>
-            {municipalities.map((m) => (
+            <option value="">{isLoadingMunis ? 'Cargando municipios...' : 'Todo el departamento'}</option>
+            {localMunicipalities.map((m) => (
               <option key={m.code} value={m.code}>{m.name}</option>
             ))}
           </select>
@@ -444,6 +477,22 @@ const DecentralizedEntitiesModal: React.FC<Props> = ({
               <WarningIcon className="w-8 h-8 text-rose-500 mx-auto mb-2" />
               <h4 className="font-bold text-sm">Error en la consulta</h4>
               <p className="text-xs mt-1">{error}</p>
+              <div className="flex items-center justify-center gap-3 mt-4">
+                <button
+                  type="button"
+                  onClick={handleRetry}
+                  className="btn-primary text-xs py-1.5 px-4"
+                >
+                  🔄 Reintentar
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setError(null); setSelectedMun(''); }}
+                  className="btn-secondary text-xs py-1.5 px-3"
+                >
+                  Ver todo el departamento
+                </button>
+              </div>
             </div>
 
           ) : filteredContracts.length === 0 ? (
@@ -607,12 +656,22 @@ const DecentralizedEntitiesModal: React.FC<Props> = ({
             {filteredContracts.length} de {contracts.length} contratos auditados
             {currentDeptName && ` · ${currentMunName || currentDeptName}`}
           </span>
-          <button
-            onClick={onClose}
-            className="btn-secondary text-xs py-1.5 px-4"
-          >
-            Cerrar
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handleRetry}
+              title="Limpiar caché y recargar contratos"
+              className="text-[11px] text-slate-500 hover:text-blue-600 transition-colors px-2 py-1 rounded hover:bg-slate-100"
+            >
+              🗑️ Limpiar caché
+            </button>
+            <button
+              onClick={onClose}
+              className="btn-secondary text-xs py-1.5 px-4"
+            >
+              Cerrar
+            </button>
+          </div>
         </div>
       </div>
     </div>
