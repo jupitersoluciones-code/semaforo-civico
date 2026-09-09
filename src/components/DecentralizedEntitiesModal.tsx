@@ -157,8 +157,10 @@ const DecentralizedEntitiesModal: React.FC<Props> = ({
 
   /** Fuerza reconsulta limpiando la caché para la combinación actual */
   const handleRetry = () => {
-    // Limpiar las claves de caché conocidas para esta combinación
     const keysToInvalidate = [
+      `decent_v7_strict_mun_${selectedEntity}_${selectedDept}_${selectedMun}_150`,
+      `decent_v7_dept_${selectedEntity}_${selectedDept}_150`,
+      `decent_v7_nat_${selectedEntity}_150`,
       `decent_v6_strict_mun_${selectedEntity}_${selectedDept}_${selectedMun}_150`,
       `decent_v6_dept_${selectedEntity}_${selectedDept}_150`,
       `decent_v6_nat_${selectedEntity}_150`,

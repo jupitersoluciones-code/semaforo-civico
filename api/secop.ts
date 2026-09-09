@@ -24,9 +24,11 @@ const DEPT_ALIASES: Record<string, string[]> = {
   '50': ['Meta'],
   '52': ['Nariño', 'Narino'],
   '54': ['Norte de Santander'],
+  'norte de santander': ['Norte de Santander'],
   '63': ['Quindío', 'Quindio'],
   '66': ['Risaralda'],
   '68': ['Santander'],
+  'santander': ['Santander'],
   '70': ['Sucre'],
   '73': ['Tolima'],
   '76': ['Valle del Cauca'],
@@ -119,16 +121,34 @@ export default async function handler(req: any, res: any) {
 
       if (DEPT_ALIASES[rawDept]) {
         candidateNames = DEPT_ALIASES[rawDept];
+      } else if (DEPT_ALIASES[normDept]) {
+        candidateNames = DEPT_ALIASES[normDept];
       } else {
+        // 1. Coincidencia exacta de nombre primero (vital para Santander vs Norte de Santander)
         for (const names of Object.values(DEPT_ALIASES)) {
           if (
             names.some((n) => {
               const nNorm = n.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
-              return nNorm === normDept || nNorm.includes(normDept) || normDept.includes(nNorm);
+              return nNorm === normDept;
             })
           ) {
             candidateNames = names;
             break;
+          }
+        }
+
+        // 2. Coincidencia parcial sólo si no hubo coincidencia exacta
+        if (candidateNames.length === 0) {
+          for (const names of Object.values(DEPT_ALIASES)) {
+            if (
+              names.some((n) => {
+                const nNorm = n.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+                return nNorm.includes(normDept) || normDept.includes(nNorm);
+              })
+            ) {
+              candidateNames = names;
+              break;
+            }
           }
         }
       }

@@ -14,12 +14,19 @@ export async function fetchMunicipalitiesByDepartment(departmentCodeOrName: stri
   const resolvedCode = resolveDepartmentCode(departmentCodeOrName) || departmentCodeOrName;
   return new Promise((resolve) =>
     setTimeout(
-      () =>
-        resolve(
-          MUNICIPALITIES.filter((m) => m.departmentCode === resolvedCode).sort((a, b) =>
-            a.name.localeCompare(b.name),
-          ),
-        ),
+      () => {
+        const filtered = MUNICIPALITIES.filter((m) => m.departmentCode === resolvedCode);
+        // Deduplicación defensiva por código y nombre normalizado
+        const seenCodes = new Set<string>();
+        const unique = filtered.filter((m) => {
+          const key = m.code;
+          if (seenCodes.has(key)) return false;
+          seenCodes.add(key);
+          return true;
+        });
+        unique.sort((a, b) => a.name.localeCompare(b.name));
+        resolve(unique);
+      },
       30,
     ),
   );
@@ -38,6 +45,12 @@ export const SECOP_DEPARTMENT_MAP: Record<string, string[]> = {
   '44': ['La Guajira', 'Guajira'],
   'La Guajira': ['La Guajira', 'Guajira'],
   'Guajira': ['La Guajira', 'Guajira'],
+  '54': ['Norte de Santander'],
+  'Norte de Santander': ['Norte de Santander'],
+  'norte de santander': ['Norte de Santander'],
+  '68': ['Santander'],
+  'Santander': ['Santander'],
+  'santander': ['Santander'],
   '88': ['San Andrés, Providencia y Santa Catalina', 'San Andrés y Providencia'],
   'San Andrés y Providencia': ['San Andrés, Providencia y Santa Catalina', 'San Andrés y Providencia'],
   'San Andres y Providencia': ['San Andrés, Providencia y Santa Catalina', 'San Andrés y Providencia'],
@@ -57,11 +70,20 @@ export function resolveDepartmentCode(codeOrName: string): string | undefined {
   if (cleanLower === 'guajira' || cleanLower === 'la guajira') return '44';
   if (cleanLower.includes('bogot')) return '11';
   if (cleanLower.includes('san andres')) return '88';
+  if (cleanLower === 'santander') return '68';
+  if (cleanLower === 'norte de santander') return '54';
 
-  // Check by accent-free name
+  // 1. Check by EXACT accent-free name first! (Crucial so "Santander" never matches "Norte de Santander")
+  const byExactName = DEPARTMENTS.find((d) => {
+    const dLower = stripAccents(d.name.toLowerCase());
+    return dLower === cleanLower;
+  });
+  if (byExactName) return byExactName.code;
+
+  // 2. Check by word-boundary or substring only if no exact match
   const byName = DEPARTMENTS.find((d) => {
     const dLower = stripAccents(d.name.toLowerCase());
-    return dLower === cleanLower || dLower.includes(cleanLower) || cleanLower.includes(dLower);
+    return dLower.includes(cleanLower) || cleanLower.includes(dLower);
   });
 
   return byName?.code;
@@ -88,6 +110,12 @@ export function normalizeSecopDepartment(deptCodeOrName: string): string[] {
   if (clean === '44' || cleanLower === 'guajira' || cleanLower === 'la guajira') {
     return ['La Guajira', 'Guajira'];
   }
+  if (clean === '68' || cleanLower === 'santander') {
+    return ['Santander'];
+  }
+  if (clean === '54' || cleanLower === 'norte de santander') {
+    return ['Norte de Santander'];
+  }
 
   // Check department code
   const deptByCode = DEPARTMENTS.find((d) => d.code === clean);
@@ -97,10 +125,19 @@ export function normalizeSecopDepartment(deptCodeOrName: string): string[] {
     return [deptByCode.name];
   }
 
-  // Check by name matching (accent-insensitive)
+  // Check by EXACT name matching first (accent-insensitive)
+  const deptByExactName = DEPARTMENTS.find(
+    (d) => stripAccents(d.name.toLowerCase()) === cleanLower,
+  );
+  if (deptByExactName) {
+    if (SECOP_DEPARTMENT_MAP[deptByExactName.code]) return SECOP_DEPARTMENT_MAP[deptByExactName.code];
+    if (SECOP_DEPARTMENT_MAP[deptByExactName.name]) return SECOP_DEPARTMENT_MAP[deptByExactName.name];
+    return [deptByExactName.name];
+  }
+
+  // Check by partial name matching only if no exact match exists
   const deptByName = DEPARTMENTS.find(
     (d) =>
-      stripAccents(d.name.toLowerCase()) === cleanLower ||
       stripAccents(d.name.toLowerCase()).includes(cleanLower) ||
       cleanLower.includes(stripAccents(d.name.toLowerCase())),
   );
@@ -239,7 +276,7 @@ export async function fetchContractsByDepartment(
   const dept = getDeptInfo(resolvedCode);
   const deptName = dept?.name || departmentCode;
   const whereClause = buildSoqlWhereClause(deptName);
-  const cacheKey = `contracts_dept_${resolvedCode}_${limit}`;
+  const cacheKey = `contracts_dept_v4_${resolvedCode}_${limit}`;
 
   // 1. Intento primario: a través del Proxy Serverless /api/secop
   const proxyUrl = `/api/secop?where=${encodeURIComponent(whereClause)}&limit=${limit}&resourceId=${SECOP_CONTRACTS_ID}`;
@@ -282,7 +319,7 @@ export async function fetchContractsByMunicipality(
   const deptName = dept.name;
   const cityName = mun?.name || '';
 
-  const cacheKey = `contracts_mun_v3_${municipalityCode}_${limit}`;
+  const cacheKey = `contracts_mun_v4_${municipalityCode}_${limit}`;
   const whereClause = buildSoqlWhereClause(deptName, cityName);
 
   // 1. Intento primario: a través del Proxy Serverless /api/secop (aprovecha App Token y caché Edge)
@@ -470,8 +507,8 @@ export async function fetchContractsByDecentralizedEntity(
       whereMun = `${deptCond} AND ${entityMatch} AND (upper(ciudad)='${cUpper}' OR upper(ciudad)='${cNoAcc}' OR upper(objeto_del_contrato) like '%${cUpper}%' OR upper(objeto_del_contrato) like '%${cNoAcc}%')`;
     }
 
-    // v6: incrementado para invalidar entradas de caché v5 que pudieran contener arrays vacíos
-    const cacheKeyMun = `decent_v6_strict_mun_${entityId}_${resolvedDeptCode}_${municipalityCode}_${limit}`;
+    // v7: incrementado para invalidar entradas de caché v6 que pudieran contener arrays vacíos
+    const cacheKeyMun = `decent_v7_strict_mun_${entityId}_${resolvedDeptCode}_${municipalityCode}_${limit}`;
     console.log(`[SECOP] Consulta entidad descentralizada (municipio): ${entityId} | ${cityName} | ${resolvedDeptCode}`);
     const municipalContracts = await executeSecopQuery(whereMun, cacheKeyMun, limit);
 
@@ -489,8 +526,8 @@ export async function fetchContractsByDecentralizedEntity(
     whereDept = `${deptCond} AND ${entityMatch}`;
   }
 
-  // v6: incrementado para invalidar caché v5 que pudieran tener arrays vacíos
-  const cacheKeyDept = `decent_v6_dept_${entityId}_${resolvedDeptCode}_${limit}`;
+  // v7: incrementado para invalidar caché v6 que pudieran tener arrays vacíos
+  const cacheKeyDept = `decent_v7_dept_${entityId}_${resolvedDeptCode}_${limit}`;
   console.log(`[SECOP] Consulta entidad descentralizada (departamento): ${entityId} | ${resolvedDeptCode}`);
   const deptContracts = await executeSecopQuery(whereDept, cacheKeyDept, limit);
   if (deptContracts.length > 0) {
@@ -499,7 +536,7 @@ export async function fetchContractsByDecentralizedEntity(
 
   // Nivel 3: Fallback Nacional para entidades con registro centralizado (AUNAP, ANT) a nivel país
   if (entityId === 'aunap' || entityId === 'ant') {
-    const cacheKeyNat = `decent_v6_nat_${entityId}_${limit}`;
+    const cacheKeyNat = `decent_v7_nat_${entityId}_${limit}`;
     const natContracts = await executeSecopQuery(entityMatch, cacheKeyNat, limit);
     return natContracts;
   }

@@ -95,5 +95,49 @@ describe('Consulta de Departamentos Solicitados', () => {
     expect(clause).toContain("upper(entidad) like '%PLANETA RICA%'");
     expect(clause).not.toContain("upper(departamento)='");
   });
+
+  it('distingue inequívocamente Santander (68) de Norte de Santander (54) sin colisiones de subcadena', () => {
+    // Santander debe resolver a 68 y NUNCA a 54
+    expect(resolveDepartmentCode('Santander')).toBe('68');
+    expect(resolveDepartmentCode('santander')).toBe('68');
+    expect(resolveDepartmentCode('68')).toBe('68');
+
+    // Norte de Santander debe resolver a 54
+    expect(resolveDepartmentCode('Norte de Santander')).toBe('54');
+    expect(resolveDepartmentCode('norte de santander')).toBe('54');
+    expect(resolveDepartmentCode('54')).toBe('54');
+
+    // Normalización SECOP
+    const santanderSecop = normalizeSecopDepartment('Santander');
+    expect(santanderSecop).toEqual(['Santander']);
+    expect(santanderSecop).not.toContain('Norte de Santander');
+
+    const norteSecop = normalizeSecopDepartment('Norte de Santander');
+    expect(norteSecop).toEqual(['Norte de Santander']);
+    expect(norteSecop).not.toContain('Santander');
+  });
+
+  it('no contiene municipios duplicados para Santander ni para Norte de Santander', async () => {
+    const santanderMuns = await fetchMunicipalitiesByDepartment('68');
+    expect(santanderMuns.length).toBe(87);
+    const santanderCodes = new Set(santanderMuns.map((m) => m.code));
+    expect(santanderCodes.size, 'No debe haber códigos DANE duplicados en Santander').toBe(87);
+
+    const norteMuns = await fetchMunicipalitiesByDepartment('54');
+    expect(norteMuns.length).toBe(40);
+    const norteCodes = new Set(norteMuns.map((m) => m.code));
+    expect(norteCodes.size, 'No debe haber códigos DANE duplicados en Norte de Santander').toBe(40);
+  });
+
+  it('construye cláusulas SoQL exactas para Santander y Norte de Santander', () => {
+    const santanderClause = buildSoqlWhereClause('Santander', 'Bucaramanga');
+    expect(santanderClause).toContain("upper(departamento)='SANTANDER'");
+    expect(santanderClause).not.toContain("NORTE DE SANTANDER");
+    expect(santanderClause).toContain("upper(ciudad)='BUCARAMANGA'");
+
+    const norteClause = buildSoqlWhereClause('Norte de Santander', 'Cúcuta');
+    expect(norteClause).toContain("upper(departamento)='NORTE DE SANTANDER'");
+    expect(norteClause).toContain("upper(ciudad)='CÚCUTA'");
+  });
 });
 
